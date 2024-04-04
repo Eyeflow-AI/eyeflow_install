@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo Stoping Edge service
+sudo systemctl stop run_flow.service
+python3 ../run/prepare_models.py
+echo Starting Edge service
+sudo systemctl start run_flow.service

@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  eyeflow_edge:
+    image: eyeflowai/eyeflow_edge-x86_64
+    restart: unless-stopped
+    volumes:
+      - /opt/eyeflow/data:/opt/eyeflow/data
+      - /opt/eyeflow/log:/opt/eyeflow/log
+      - /opt/eyeflow/run:/opt/eyeflow/run
+      - /opt/eyeflow/components:/opt/eyeflow/components
+      - /opt/eyeflow/install/eyeflow_conf.json:/opt/eyeflow/run/eyeflow_conf.json
+    network_mode: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+
+# Câmeras FLIR
+    # volumes:
+      # - /opt/spinnaker:/opt/spinnaker
+    # environment:
+    #   - FLIR_GENTL64_CTI=/opt/spinnaker/lib/flir-gentl/FLIR_GenTL.cti
+    #   - LD_LIBRARY_PATH=/opt/spinnaker/lib:/opt/eyeflow/lib:/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+    # devices:
+    #   - /dev/bus/usb/006/002
+    #   - /dev/bus/usb/006/003
+
+
+# Cameras Hikrobot
+  # volumes:
+  #   - /opt/MvCamCtrlSDK:/opt/MvCamCtrlSDK
+  # environment:
+  #   - MVCAM_SDK_PATH=/opt/MvCamCtrlSDK
+  #   - MVCAM_COMMON_RUNENV=/opt/MvCamCtrlSDK/lib
+  #   - LD_LIBRARY_PATH=/opt/MvCamCtrlSDK/lib/64:/opt/MvCamCtrlSDK/lib/32
+
+# Cameras Mindvision
+  # volumes:
+  #   - /opt/mindvision:/opt/mindvision
+  # environment:
+  #   - LD_LIBRARY_PATH=/opt/mindvision/lib/x64:/opt/eyeflow/lib:/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+
+## Display no host
+# XSOCK=/tmp/.X11-unix
+# XAUTH=/tmp/.docker.xauth
+# xauth nlist $DISPLAY | sed -e 's/^..../ffff/' | sudo xauth -f $XAUTH nmerge -
+# sudo chmod 777 $XAUTH
+# compose
+  # network: host
+  # environment: DISPLAY=$DISPLAY
+  # volumes: $XSOCK:$XSOCK
+  # volumes: $XAUTH:$XAUTH
+  # environment: XAUTHORITY=$XAUTH
+
+
+# Serial
+  # devices:
+  #   - /dev/bus/usb/001/004
+  #   - /dev/bus/usb/001/005
+  #   - /dev/bus/usb/001/006
+  #   - /dev/bus/usb/001/008
+  # volumes:
+  #   - /dev/ttyACM0:/dev/ttyACM0
+
+
+# docker run \
+#   --name eyeflow_edge \
+#   --rm \
+#   --gpus all \
+#   --network host \
+#   -v /opt/eyeflow/data:/opt/eyeflow/data \
+#   -v /opt/eyeflow/log:/opt/eyeflow/log \
+#   -v /opt/eyeflow/run:/opt/eyeflow/run \
+#   -v /opt/eyeflow/components:/opt/eyeflow/components \
+#   -v /opt/eyeflow/install/eyeflow_conf.json:/opt/eyeflow/run/eyeflow_conf.json \
+#   eyeflowai/eyeflow_edge-x86_64 \
+#   sh /opt/eyeflow/run/run_flow

@@ -1,0 +1,9 @@
+[Unit]
+Description=Automatic update edge
+[Timer]
+Unit=update_edge.service
+OnBootSec=15
+OnUnitActiveSec=60
+AccuracySec=500msec
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,122 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import time
+import datetime
+import argparse
+import json
+from pymongo.mongo_client import MongoClient
+# from bson.objectid import ObjectId
+
+# from eyeflow_sdk.log_obj import log
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def get_credencial(environment_name):
+    # cred_file = os.path.join(os.environ['HOME'], ".eyeflow", "env_credentials_dev.json")
+    # cred_file = os.path.join(os.environ['HOME'], ".eyeflow", "env_credentials_beta.json")
+    cred_file = os.path.join(os.environ['HOME'], ".eyeflow", "env_credentials_prod.json")
+    with open(cred_file) as fp:
+        credentials = json.load(fp)
+
+    db_auth_client = MongoClient(credentials["atlas"]["db_url"])
+    db_auth = db_auth_client["eyeflow-auth"]
+
+    src_credentials = db_auth.environment.find_one({"name": environment_name})
+    if not src_credentials:
+        raise Exception(f"Environment not found {environment_name}")
+
+    db_config = src_credentials["db_resource"]
+    if "-pri" in db_config["db_url"]:
+        idx = db_config["db_url"].index("-pri")
+        db_config["db_url"] = db_config["db_url"][:idx] + db_config["db_url"][idx + 4:]
+
+    db_src = MongoClient(db_config["db_url"])[db_config["db_name"]]
+
+    return db_src
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def build_command(args):
+    """ Build the command to be executed on the edge.
+    """
+    with open(args.script_path) as fp:
+        script_content = fp.read()
+
+    if args.script_type == "python":
+        tmp_file = "/tmp/eyeflow_script.py"
+        command = f"""echo '{script_content}' > {tmp_file} && python3 {tmp_file}"""
+    elif args.script_type == "shell":
+        tmp_file = "/tmp/eyeflow_script.sh"
+        command = f"""echo '{script_content}' > {tmp_file} && bash {tmp_file}"""
+    else:
+        raise Exception(f"Invalid script type {args.script_type}")
+
+    return command, tmp_file
+
+#----------------------------------------------------------------------------------------------------------------------------------
+def parse_args(args):
+    """ Parse the arguments.
+    """
+    parser = argparse.ArgumentParser(description='Test Flow')
+    # parser.add_argument('plat', help='The platform (dev/beta/prod)', type=str, default="dev")
+    parser.add_argument('environment', help='The name of environment', type=str)
+    parser.add_argument('edge_name', help='The name of edge', type=str)
+    parser.add_argument('script_type', help='The type of script (python/shell)', type=str)
+    parser.add_argument('script_path', help='The path of the script', type=str)
+
+    return parser.parse_args(args)
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
+    args = parse_args(args)
+
+    if not os.path.exists(args.script_path):
+        raise Exception(f"Script not found {args.script_path}")
+    
+    command, tmp_file = build_command(args)
+
+    db = get_credencial(args.environment)
+    edge_doc = db.edge.find_one({"name": args.edge_name})
+    if not edge_doc:
+        raise Exception(f"Edge not found {args.edge_name}")
+
+    ret = db.edge_tasks.insert_one({
+        "edge_id": edge_doc["_id"],
+        "status": "created",
+        "date": datetime.datetime.now(datetime.timezone.utc),
+        "task": {
+            "type": "run_command",
+            "params": {
+                "command": command
+            }
+        }
+    })
+
+    print(f"Script {args.script_path} sent to edge {args.edge_name}: {tmp_file}  - task: {ret.inserted_id}")
+
+    print(f"Waiting for edge {args.edge_name} to finish command ", end="", flush=True)
+    while True:
+        edge_task = db.edge_tasks.find_one({"_id": ret.inserted_id})
+        if not edge_task:
+            raise Exception(f"Task not found {ret.inserted_id}")
+
+        if edge_task["status"] == "created":
+            print(".", end="", flush=True)
+            time.sleep(5)
+            continue
+
+        if edge_task["status"] == "completed":
+            print("completed")
+            print(f"Command result: {edge_task['task_result']['status']}")
+            print(f'Stdout: {edge_task["task_result"]["log_data"]["stdout"]}')
+            print(f'Stderr: {edge_task["task_result"]["log_data"]["stderr"]}')
+            break
+#----------------------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
+    # main(["Eyeflow", "eyeflow-GKTB", "systemctl status metric-collector.service"])

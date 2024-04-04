@@ -1,0 +1,9 @@
+[Unit]
+Description=Update Edge
+
+[Service]
+Type=simple
+ExecStart=python3 /opt/eyeflow/install/update_edge.py
+
+[Install]
+WantedBy=multi-user.target

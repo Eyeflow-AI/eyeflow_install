@@ -1,0 +1,21 @@
+{
+    "log": {
+        "log_folder": "/opt/eyeflow/log",
+        "level": "INFO"
+    },
+    "file-service": {
+        "run_folder": "/opt/eyeflow/run",
+        "data_folder": "/opt/eyeflow/data",
+        "temp_folder": "/opt/eyeflow/data/tmp",
+        "flow": "/opt/eyeflow/data/flow",
+        "model": "/opt/eyeflow/data/models",
+        "dataset": "/opt/eyeflow/data/datasets",
+        "extract": "/opt/eyeflow/data/extract",
+        "export": "/opt/eyeflow/data/export",
+        "video": "/opt/eyeflow/data/video",
+        "event_image": "/opt/eyeflow/data/event_image",
+        "components": "/opt/eyeflow/components"
+    },
+    "flow_folder": "/opt/eyeflow/data/flow",
+    "ws": "https://app.eyeflow.ai"
+}

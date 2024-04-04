@@ -1,0 +1,58 @@
+#!/usr/bin/python3
+import os
+import json
+import tarfile
+from azure.storage.fileshare import ShareFileClient
+
+cred_file = os.path.join(os.environ['HOME'], ".eyeflow", "env_credentials_prod.json")
+with open(cred_file) as fp:
+    credentials = json.load(fp)
+
+wd = os.getcwd()
+cur_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(cur_dir)
+
+files_list = [
+    "eyeflow_conf.json",
+    "compose.yaml",
+    "install_run_flow_service.sh",
+    "install_update_edge_service.sh",
+    "request_license.py",
+    "restart_edge",
+    "run_flow.service",
+    "run_flow.sh",
+    "run_endpoint.sh",
+    "start_edge",
+    "stop_edge",
+    "update_edge.py",
+    "update_edge.service",
+    "update_edge.timer",
+    "update_eyeflow_version.py",
+    "upload_extracts.py",
+    "utils.py"
+]
+
+pack_name = "edge_install.tar.gz"
+with tarfile.open(pack_name, "w:gz") as tar:
+    for file in files_list:
+        tar.add(file)
+
+file_client = ShareFileClient.from_file_url(file_url=credentials["storage_sas_tokens"][pack_name])
+with open(pack_name, 'rb') as fp:
+    file_client.upload_file(fp)
+
+os.remove(pack_name)
+
+pack_name = "setup_edge_x86.sh"
+file_client = ShareFileClient.from_file_url(file_url=credentials["storage_sas_tokens"][pack_name])
+with open(pack_name, 'rb') as fp:
+    file_client.upload_file(fp)
+
+pack_name = "setup_edge_jetson.sh"
+file_client = ShareFileClient.from_file_url(file_url=credentials["storage_sas_tokens"][pack_name])
+with open(pack_name, 'rb') as fp:
+    file_client.upload_file(fp)
+
+os.chdir(wd)
+
+print("**install packs uploaded**")

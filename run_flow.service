@@ -1,0 +1,16 @@
+[Unit]
+Description=Start EyeflowEdge
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+Environment="LD_LIBRARY_PATH=/opt/eyeflow/lib:/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+Environment="CUDA_MODULE_LOADING=LAZY"
+
+ExecStart=/opt/eyeflow/run/eyeflow_edge --video_save --service
+
+[Install]
+WantedBy=multi-user.target

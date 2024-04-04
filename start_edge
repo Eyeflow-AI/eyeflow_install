@@ -1,0 +1,7 @@
+#!/bin/bash
+# cd /opt/eyeflow/install
+# docker compose up -d
+
+python3 ../run/prepare_models.py
+echo Starting Edge service
+sudo systemctl start run_flow.service
