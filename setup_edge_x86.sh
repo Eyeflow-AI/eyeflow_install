@@ -134,7 +134,10 @@ then
   python3 /opt/eyeflow/install/request_license.py
 fi
 
-python3 /opt/eyeflow/install/update_eyeflow_version.py
-python3 /opt/eyeflow/install/update_edge.py
+if [ -f /opt/eyeflow/run/edge.license ];
+then
+  python3 /opt/eyeflow/install/update_eyeflow_version.py
+  python3 /opt/eyeflow/install/update_edge.py
+fi
 
 echo "Edge installation finished"

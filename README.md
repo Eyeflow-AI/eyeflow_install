@@ -2,6 +2,13 @@
 Eyeflow Scripts for setup and install
 
 ## Runtime
+Install the NVIDIA driver first
+On Ubuntu 20.04, you can install the NVIDIA driver with the following command:
+ - ```sudo apt install nvidia-driver-535-server```
+
+On Azure VM, you can install the NVIDIA driver with the following command:
+ - ```sudo apt install -y ubuntu-drivers-common && sudo ubuntu-drivers autoinstall```
+
 Para instalação da máquina Edge x86:
  - ```sudo apt update && sudo apt install curl```
  - ```curl -sL https://eyeflow.ai/static/media/setup_edge_x86.sh | sudo EDGE_ENVIRONMENT=<environment_name> EDGE_DEVICE=<device_name> PASS=<eyeflow user password>  bash```
