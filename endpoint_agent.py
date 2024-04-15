@@ -328,9 +328,29 @@ def get_available_port():
 
 
 def publish_endpoint(request_parms, port):
-    conf_line = f"location /endpoint/{request_parms['endpoint_id']} {{ proxy_pass http://localhost:{port}; }}\n"
-    with open(NGINX_CONF, "a") as fp:
+    conf_line = f"location /endpoint/{request_parms['endpoint_id']} {{ proxy_pass http://localhost:{port}/; }}\n"
+    with open(os.path.join(NGINX_CONF_PATH, request_parms['endpoint_id'] + ".conf"), "w") as fp:
         fp.write(conf_line)
+
+    cmd = [
+        "nginx",
+        "-s",
+        "reload"
+    ]
+    result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        log.error(f"Fail reloading NGINX conf: {request_parms['endpoint_id']} - {result}")
+        publish_message(
+            message={
+                "operation": "set_endpoint_progress",
+                "endpoint_id": request_parms['endpoint_id'],
+                "status": "fail",
+                "event": "endpoint_start_fail",
+                "message": f"Fail running endpoint: {request_parms['endpoint_id']}. Fail reloading NGINX conf: {result}."
+            },
+            queue=SERVICES_MANAGER_QUEUE
+        )
+        return
 
     publish_message(
         message={
@@ -409,7 +429,7 @@ MQ_URL = os.environ.get("MQ_URL", "amqp://eyeflow_app:G4r6DxUdC8g5u85Q@rabbitmq.
 SERVICES_MANAGER_QUEUE = os.environ.get("SERVICES_MANAGER_QUEUE", "services_manager") # "services_manager_dev"
 SERVICES_MANAGER_BROADCAST_QUEUE = os.environ.get("SERVICES_MANAGER_BROADCAST_QUEUE", "services_manager_broadcast") # "services_manager_broadcast_dev"
 PORT_RANGE = [8100, 8150]
-SERVER_URL = os.environ.get("SERVER_URL", "http://endpoint-1.eyeflow.ai")
-NGINX_CONF = "/etc/nginx/conf.d/eyeflow_endpoint.conf"
+SERVER_URL = os.environ.get("SERVER_URL", "https://endpoint-1.eyeflow.ai")
+NGINX_CONF_PATH = "/etc/nginx/api_conf.d/"
 
 main()
