@@ -263,7 +263,6 @@ def endpoint_start(request_parms, port):
 
 def endpoint_kill(request_parms):
     endpoint_id = request_parms["endpoint_id"]
-    services_manager_queue = request_parms.get("services_manager_queue", "services_manager")
     container_id = f"endpoint_{endpoint_id}"
 
     log.info(f"Killing endpoint container {container_id}")
@@ -282,6 +281,10 @@ def endpoint_kill(request_parms):
                 "status": "fail",
                 "message": f"Fail stopping container: {container_id} - {result}"
             }
+
+        update_endpoint(request_parms, {
+            "status": "stopped",
+        })
 
         return {
             "status": "success",
@@ -378,7 +381,7 @@ def on_request(channel, basic_deliver, properties, body):
         port = get_available_port()
         endpoint_start(request_parms, port)
         publish_endpoint(request_parms, port)
-    elif operation == "endpoint_kill":
+    elif operation == "endpoint_stop":
         endpoint_kill(request_parms)
     elif operation == "get_host_info":
         SendHostInfo(request_parms)
