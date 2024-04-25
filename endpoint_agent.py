@@ -35,7 +35,10 @@ def update_endpoint(request_parms, body):
     token_payload = jwt.decode(endpoint_token, public_key, algorithms=["RS256"])
     endpoint_update_url = token_payload["endpoint_parms"]["endpoint_update_url"]
 
-    response = requests.put(endpoint_update_url, json=body)
+    header = {
+        "Authorization": f"Bearer {endpoint_token}"
+    }
+    response = requests.put(endpoint_update_url, json=body, headers=header)
     if not response.ok:
         log.error(f"Fail updating endpoint: {endpoint_update_url} - {response.text}")
         return {
@@ -357,6 +360,8 @@ def publish_endpoint(request_parms, port):
     update_endpoint(request_parms, {
         "status": "active",
         "endpoint_url": SERVER_URL + f"/endpoint/{request_parms['endpoint_id']}",
+        "hostname": request_parms["hostname"],
+        "host_gpu": request_parms["host_gpu"],
     })
 #----------------------------------------------------------------------------------------------------------------------------------
 
