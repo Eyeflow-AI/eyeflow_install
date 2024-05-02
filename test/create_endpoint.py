@@ -8,12 +8,18 @@ EYEFLOW_WS = "https://app.eyeflow.ai"
 
 
 def login(username, password):
+
     response = requests.post(f"{EYEFLOW_WS}/auth-user/user/login", auth=HTTPBasicAuth(username, password))
     if response.status_code != 201:
         print("Failed to login. Status code: ", response.status_code)
         exit(1)
 
-    token = response.json()["token"]
+    json_data = response.json()
+    username = json_data["username"]
+    env_name = json_data["selectedResource"]["name"]
+    env_id = json_data["selectedResource"]["_id"]
+    print(f"""Logged in as {username} on {env_name} ({env_id}). If you want to change the resource, please do it on the web interface.""")
+    token = json_data["token"]
     return token
 
 
