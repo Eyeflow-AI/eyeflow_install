@@ -97,7 +97,7 @@ def main(args=None):
                 with open("/opt/eyeflow/data/edge_data.json", "r") as fp:
                     edge_data = json.load(fp)
                 token_data = edge_data["token_data"]
-                flow_id = token_data["flow_id"]
+                flow_id = token_data["endpoint_parms"]["flow_id"]
                 with open(f"/opt/eyeflow/data/flow/{flow_id}.json", "r") as fp:
                     flow_data = json.load(fp)
             else:
