@@ -351,7 +351,7 @@ def get_available_port():
 
 
 def publish_endpoint(request_parms, port):
-    conf_line = f"location /endpoint/{request_parms['endpoint_id']} {{ proxy_pass http://localhost:{port}/; }}\n"
+    conf_line = f"location /endpoint/{request_parms['endpoint_id']}/ {{ proxy_pass http://localhost:{port}/; }}\n"
     with open(os.path.join(NGINX_CONF_PATH, request_parms['endpoint_id'] + ".conf"), "w") as fp:
         fp.write(conf_line)
 
