@@ -60,10 +60,13 @@ def main(args=None):
     log.info("args: {}".format(args))
 
     app_info, app_token = utils.get_license()
+
     if "endpoint_id" in app_info:
         log.info(f'Endpoint ID: {app_info["endpoint_id"]}')
+        host_type = "endpoint"
     elif "edge_id" in app_info:
         log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+        host_type = "edge"
     else:
         log.error(f'No endpoint_id or edge_id found in license')
         exit(1)
@@ -90,14 +93,23 @@ def main(args=None):
                     pass
     else:
         try:
-            edge_data = edge_client.get_edge_data(app_token)
-            if not edge_data:
-                raise Exception("Fail getting edge_data")
+            if host_type == "endpoint":
+                with open("/opt/eyeflow/data/edge_data.json", "r") as fp:
+                    edge_data = json.load(fp)
+                token_data = edge_data["token_data"]
+                flow_id = token_data["flow_id"]
+                with open(f"/opt/eyeflow/data/flow/{flow_id}.json", "r") as fp:
+                    flow_data = json.load(fp)
+            else:
+                edge_data = edge_client.get_edge_data(app_token)
+                if not edge_data:
+                    raise Exception("Fail getting edge_data")
 
-            log.info(edge_data)
-            flow_id = edge_data["flow_id"]
+                log.info(edge_data)
+                flow_id = edge_data["flow_id"]
 
-            flow_data = edge_client.get_flow(app_token, flow_id)
+                flow_data = edge_client.get_flow(app_token, flow_id)
+
             utils.upload_flow_extracts(app_token, flow_data)
 
         except Exception as expt:
