@@ -20,12 +20,31 @@ from pathlib import Path
 import requests
 import tarfile
 import jwt
+import requests
 
 from eyeflow_sdk.message_queue import publish_message
 from eyeflow_sdk.log_obj import log
 
 import eyeflow_sdk.nv_gpu as nv_gpu
 #----------------------------------------------------------------------------------------------------------------------------------
+
+def update_endpoint(request_parms, body):
+
+    endpoint_token = request_parms["endpoint_token"]
+    public_key = request_parms["pub_key"]
+    token_payload = jwt.decode(endpoint_token, public_key, algorithms=["RS256"])
+    endpoint_update_url = token_payload["endpoint_parms"]["endpoint_update_url"]
+
+    header = {
+        "Authorization": f"Bearer {endpoint_token}"
+    }
+    response = requests.put(endpoint_update_url, json=body, headers=header)
+    if not response.ok:
+        log.error(f"Fail updating endpoint: {endpoint_update_url} - {response.text}")
+        return {
+            "status": "fail",
+            "message": f"Fail updating endpoint: {endpoint_update_url} - {response.text}"
+        }
 
 
 def get_host_info():
@@ -128,16 +147,13 @@ def endpoint_start(request_parms, port):
         response = requests.get(EDGE_INSTALL_URL, params={"downloadformat": "tar.gz"})
         if not response.ok:
             log.error(f"Fail downloading edge install: {EDGE_INSTALL_URL} - {response.text}")
-            publish_message(
-                message={
-                    "operation": "set_endpoint_progress",
-                    "endpoint_id": endpoint_id,
-                    "status": "fail",
-                    "event": "endpoint_start_fail",
+            update_endpoint(request_parms, {
+                "status": "fail",
+                "logs": {
+                    "error": "endpoint_start_fail",
                     "message": f"Fail executing endpoint: {endpoint_id}. Fail downloading edge install: {EDGE_INSTALL_URL} - {response.text}."
-                },
-                queue=services_manager_queue
-            )
+                }
+            })
 
         tar_file_path = os.path.join(endpoint_base_path, EDGE_INSTALL_FILE)
         with open(tar_file_path, mode="wb") as file:
@@ -213,51 +229,41 @@ def endpoint_start(request_parms, port):
         result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             log.error(f"Fail running endpoint: {endpoint_id} - {result.stderr.decode()}")
-            publish_message(
-                message={
-                    "operation": "set_endpoint_progress",
-                    "endpoint_id": endpoint_id,
-                    "status": "fail",
-                    "event": "endpoint_start_fail",
+            update_endpoint(request_parms, {
+                "status": "fail",
+                "logs": {
+                    "error": "endpoint_start_fail",
                     "message": f"Fail running endpoint: {endpoint_id}. Fail starting container: {result.stdout.decode()}."
-                },
-                queue=services_manager_queue
-            )
+                }
+            })
 
     except CalledProcessError as excp:
         log.error('Fail running endpoint')
         log.error(excp)
         log.error(excp.stdout.decode())
         log.error(excp.stderr.decode())
-        publish_message(
-            message={
-                "operation": "set_endpoint_progress",
-                "endpoint_id": endpoint_id,
-                "status": "fail",
-                "event": "endpoint_start_fail",
+        update_endpoint(request_parms, {
+            "status": "fail",
+            "logs": {
+                "error": "endpoint_start_fail",
                 "message": f"Fail running endpoint: {endpoint_id}. Fail starting container: {excp.stdout.decode()}."
-            },
-            queue=services_manager_queue
-        )
+            }
+        })
     except Exception as excp:
         log.error('Fail running endpoint')
         log.error(traceback.format_exc())
-        publish_message(
-            message={
-                "operation": "set_endpoint_progress",
-                "endpoint_id": endpoint_id,
-                "status": "fail",
-                "event": "endpoint_start_fail",
+        update_endpoint(request_parms, {
+            "status": "fail",
+            "logs": {
+                "error": "endpoint_start_fail",
                 "message": f"Fail running endpoint: {endpoint_id}. Fail starting container: {excp}."
-            },
-            queue=services_manager_queue
-        )
+            }
+        })
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
 def endpoint_kill(request_parms):
     endpoint_id = request_parms["endpoint_id"]
-    services_manager_queue = request_parms.get("services_manager_queue", "services_manager")
     container_id = f"endpoint_{endpoint_id}"
 
     log.info(f"Killing endpoint container {container_id}")
@@ -276,6 +282,10 @@ def endpoint_kill(request_parms):
                 "status": "fail",
                 "message": f"Fail stopping container: {container_id} - {result}"
             }
+
+        update_endpoint(request_parms, {
+            "status": "stopped",
+        })
 
         return {
             "status": "success",
@@ -302,7 +312,8 @@ def SendHostInfo(request_parms):
         message = {
             "operation": "set_host_info",
             "hostname": socket.gethostname(),
-            "host_info": get_host_info()
+            "host_info": get_host_info(),
+            "host_type": "endpoint"
         }
 
         all_gpus = nv_gpu.gpu_info()
@@ -341,26 +352,21 @@ def publish_endpoint(request_parms, port):
     result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         log.error(f"Fail reloading NGINX conf: {request_parms['endpoint_id']} - {result}")
-        publish_message(
-            message={
-                "operation": "set_endpoint_progress",
-                "endpoint_id": request_parms['endpoint_id'],
-                "status": "fail",
-                "event": "endpoint_start_fail",
+        update_endpoint(request_parms, {
+            "status": "fail",
+            "logs": {
+                "error": "endpoint_start_fail",
                 "message": f"Fail running endpoint: {request_parms['endpoint_id']}. Fail reloading NGINX conf: {result}."
-            },
-            queue=SERVICES_MANAGER_QUEUE
-        )
+            }
+        })
         return
 
-    publish_message(
-        message={
-            "operation": "publish_endpoint",
-            "endpoint_id": request_parms["endpoint_id"],
-            "endpoint_url": SERVER_URL + f"/endpoint/{request_parms['endpoint_id']}"
-        },
-        queue=SERVICES_MANAGER_QUEUE
-    )
+    update_endpoint(request_parms, {
+        "status": "active",
+        "endpoint_url": SERVER_URL + f"/endpoint/{request_parms['endpoint_id']}",
+        "hostname": request_parms["hostname"],
+        "host_gpu": request_parms["host_gpu"],
+    })
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -376,7 +382,7 @@ def on_request(channel, basic_deliver, properties, body):
         port = get_available_port()
         endpoint_start(request_parms, port)
         publish_endpoint(request_parms, port)
-    elif operation == "endpoint_kill":
+    elif operation == "endpoint_stop":
         endpoint_kill(request_parms)
     elif operation == "get_host_info":
         SendHostInfo(request_parms)

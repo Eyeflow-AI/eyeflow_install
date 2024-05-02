@@ -74,7 +74,7 @@ def create_endpoint(environment_name, flow_name):
         raise Exception(f"Token key not found {app_data['token_key']}")
 
     private_key = token_key["private_key"]
-    endpoint_token = jwt.encode(token_payload, base64.b64decode(private_key), algorithm='RS256').decode('utf-8')
+    endpoint_token = jwt.encode(token_payload, base64.b64decode(private_key), algorithm='RS256') #.decode('utf-8')
 
 
     edge_token = {
