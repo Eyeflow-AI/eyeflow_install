@@ -194,6 +194,7 @@ def endpoint_start(request_parms, port):
         cmd = [
             "docker",
             "run",
+            "--log-driver=journald",
             "--env", f"endpoint_id={endpoint_id}",
             "--env", f'MQ_URL={MQ_URL}',
             "--env", f"SERVICES_MANAGER_QUEUE={services_manager_queue}",
