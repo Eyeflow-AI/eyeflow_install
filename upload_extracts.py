@@ -60,7 +60,7 @@ def main(args=None):
     log.info("args: {}".format(args))
 
     app_info, app_token = utils.get_license()
-    log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    log.info(f'Edge ID: {app_info["endpoint_id"]}')
     utils.check_license(app_info)
 
     if args.dataset:
