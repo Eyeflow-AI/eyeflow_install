@@ -286,6 +286,17 @@ def endpoint_kill(request_parms):
             "status": "stopped",
         })
 
+        os.remove(os.path.join(NGINX_CONF_PATH, endpoint_id + ".conf"))
+
+        cmd = [
+            "nginx",
+            "-s",
+            "reload"
+        ]
+        result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            log.error(f"Fail reloading NGINX conf: {request_parms['endpoint_id']} - {result}")
+
         return {
             "status": "success",
             "message": f"Endpoint container killed ID: {container_id}"
@@ -412,7 +423,7 @@ def main():
 
                 # SendHostInfo({"services_manager_queue": SERVICES_MANAGER_QUEUE})
 
-                log.info(f"EndpointAgent Awaiting requests Queue: {queue_name}")
+                log.info(f"EndpointAgent Awaiting requests Queue: {queue_name}. Queue: {SERVICES_MANAGER_QUEUE}. Broadcast: {SERVICES_MANAGER_BROADCAST_QUEUE}")
                 mq_channel.start_consuming()
             except Exception as excp:
                 log.error('Fail in consumer loop')
