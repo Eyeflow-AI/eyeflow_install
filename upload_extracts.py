@@ -60,7 +60,14 @@ def main(args=None):
     log.info("args: {}".format(args))
 
     app_info, app_token = utils.get_license()
-    log.info(f'Edge ID: {app_info["endpoint_id"]}')
+    if "endpoint_id" in app_info:
+        log.info(f'Endpoint ID: {app_info["endpoint_id"]}')
+    elif "edge_id" in app_info:
+        log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    else:
+        log.error(f'No endpoint_id or edge_id found in license')
+        exit(1)
+
     utils.check_license(app_info)
 
     if args.dataset:
