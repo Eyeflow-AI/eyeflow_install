@@ -57,7 +57,7 @@ then
   mkdir -p /opt/eyeflow/install
 fi
 
-if [ ! -f /opt/eyeflow/install/update_edge ];
+if [ ! -f /opt/eyeflow/install/cloud_sync.py ];
 then
   echo "Download Eyeflow files"
   wget https://eyeflow.ai/static/media/edge_install.tar.gz -P /tmp
@@ -66,11 +66,11 @@ then
   cd /opt/eyeflow/install/
   chmod +x stop_edge
   chmod +x start_edge
-  chmod +x update_edge.py
+  chmod +x cloud_sync.py
   chmod +x upload_extracts.py
 
   echo "Installing services"
-  sh install_update_edge_service.sh
+  sh install_cloud_sync_service.sh
 
   cp eyeflow_conf.json /opt/eyeflow/run/.
   mv run_flow.sh /opt/eyeflow/run/.
@@ -83,7 +83,7 @@ then
   python3 /opt/eyeflow/install/request_license.py
 fi
 
-python3 /opt/eyeflow/install/update_eyeflow_version.py
-python3 /opt/eyeflow/install/update_edge.py
+python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
+python3 /opt/eyeflow/install/cloud_sync.py
 
 echo "Edge installation finished"

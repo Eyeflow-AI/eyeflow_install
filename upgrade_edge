@@ -1,0 +1,204 @@
+#!/usr/bin/python3
+
+"""
+SiliconLife Eyeflow
+Function to upgrade edge version
+
+Author: Alex Sobral de Freitas
+"""
+
+import os
+import sys
+import json
+import subprocess
+import datetime
+import traceback
+import argparse
+
+conf_path = "/opt/eyeflow/run/eyeflow_conf.json"
+if not os.path.exists(conf_path):
+    conf_path = os.path.join(os.path.dirname(__file__), "eyeflow_conf.json")
+
+if not os.path.exists(conf_path):
+    print("Error: eyeflow_conf.json not found")
+    sys.exit(1)
+
+with open(conf_path) as fp:
+    LOCAL_CONFIG = json.load(fp)
+
+from eyeflow_sdk.log_obj import log
+from eyeflow_sdk import edge_client
+import utils
+
+EYEFLOW_EDGE_PACK_ID = "64fb7933f257ab6cb37ce65d"
+EYEFLOW_EDGE_PACK_NAME = "eyeflow_edge"
+LIB_EDGE_PACK_ID = "65a987e1e90f2032a3886890"
+LIB_EDGE_PACK_NAME = "edge_sdk_libs"
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def process_status(process_name):
+    try:
+        subprocess.check_output(["pgrep", process_name])
+        return True
+    except subprocess.CalledProcessError:
+        return False
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def install_edge(app_token, version="latest"):
+    edge_pack = {
+        "name": EYEFLOW_EDGE_PACK_NAME,
+        "id": EYEFLOW_EDGE_PACK_ID,
+        "version": version
+    }
+
+    lib_pack = {
+        "name": LIB_EDGE_PACK_NAME,
+        "id": LIB_EDGE_PACK_ID,
+        "version": "latest"
+    }
+
+    # pack_doc, pack_filename = utils.download_pack(app_token, lib_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+    # retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
+
+    pack_doc, pack_filename = utils.download_pack(app_token, edge_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+    run_status = process_status("eyeflow_edge")
+    if run_status:
+        log.info("Stoping edge to update")
+        ret = subprocess.run(os.path.join(os.path.dirname(__file__), "stop_edge"), shell=True, capture_output=True)
+        if ret.returncode != 0:
+            log.error(f"Fail in Stop edge - result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
+            # raise Exception(f"Fail installing eyeflow_edge: {ret.stdout.decode()} - {ret.stderr.decode()}")
+
+    try:
+        retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
+    except:
+        pass
+
+    if run_status:
+        log.info("Starting edge")
+        ret = subprocess.run(os.path.join(os.path.dirname(__file__), "start_edge"), shell=True, capture_output=True)
+        if ret.returncode != 0:
+            log.error(f"Fail in Start edge - result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
+            raise Exception(f"Fail installing eyeflow_edge: {ret.stdout.decode()} - {ret.stderr.decode()}")
+
+        if retcode != 0:
+            raise Exception(f"Fail installing eyeflow_edge: {stdout} - {stderr}")
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def check_eyeflow_version(app_token):
+    if not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "eyeflow_edge")):
+        install_edge(app_token)
+        return
+
+    if not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")):
+        install_edge(app_token)
+        return
+
+    with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")) as fp:
+        manifest = json.load(fp)
+
+    pack_cloud_doc = None
+    try:
+        pack_cloud_doc = utils.get_pack(app_token, {"name": EYEFLOW_EDGE_PACK_NAME, "id": EYEFLOW_EDGE_PACK_ID})
+    except:
+        pass
+
+    if pack_cloud_doc is not None:
+        if datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z") > datetime.datetime.fromisoformat(manifest["compilation_date"]):
+            install_edge(app_token, version=pack_cloud_doc["version"])
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def update_components():
+    app_info, app_token = utils.get_license()
+    if "edge_id" in app_info:
+        log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    elif "endpoint_id" in app_info:
+        log.info(f'Endpoint ID: {app_info["endpoint_id"]}')
+
+    utils.check_license(app_info)
+
+    try:
+        edge_data_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_data.json")
+        edge_data = utils.get_edge_data(app_token)
+        if not edge_data:
+            log.warning("Fail getting edge_data from cloud")
+            if not os.path.isfile(edge_data_filename):
+                log.error("Fail getting edge_data from local backup")
+                exit(1)
+
+            with open(edge_data_filename, 'r') as fp:
+                edge_data = json.load(fp)
+        else:
+            with open(edge_data_filename, 'w') as fp:
+                json.dump(edge_data, fp, default=str)
+
+        if "edge_data" in edge_data:
+            log.info(f'EyeflowEdge: {edge_data["edge_data"]["name"]} - {edge_data["edge_data"]["_id"]}')
+
+            if "flow_name" in edge_data["edge_data"]:
+                log.info(f'Active Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
+                flow_id = edge_data["edge_data"]["flow_id"]
+                flow_data = edge_client.get_flow(app_token, flow_id)
+                if not flow_data:
+                    log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
+                    exit(1)
+
+                utils.update_components(app_token, flow_data)
+        elif "endpoint_data" in edge_data:
+            log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
+            flow_id = edge_data["endpoint_data"]["flow_id"]
+            flow_data = edge_client.get_flow(app_token, flow_id)
+            if not flow_data:
+                log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
+                exit(1)
+
+            utils.update_components(app_token, flow_data)
+        elif "token_data" in edge_data and "endpoint_parms" in edge_data["token_data"]:
+            log.info(f'Endpoint: {edge_data["token_data"]["endpoint_id"]}')
+            flow_id = edge_data["token_data"]["endpoint_parms"]["flow_id"]
+            flow_data = edge_client.get_flow(app_token, flow_id)
+            if not flow_data:
+                log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
+                exit(1)
+
+            utils.update_components(app_token, flow_data)
+
+    except Exception as expt:
+        log.error(f'Fail updating edge data {expt}')
+        log.error(traceback.format_exc())
+        exit(1)
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def parse_args(args):
+    """ Parse the arguments.
+    """
+    parser = argparse.ArgumentParser(description='Upgrade Edge and Components files.')
+    parser.add_argument('--upgrade_eyeflow', help='Check Edge version.', action='store_true')
+
+    return parser.parse_args(args)
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def main(args=None):
+    # parse arguments
+    if args is None:
+        args = sys.argv[1:]
+
+    args = parse_args(args)
+
+    app_info, app_token = utils.get_license()
+    log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    utils.check_license(app_info)
+
+    if args.upgrade_eyeflow:
+        check_eyeflow_version(app_token)
+
+    update_components()
+#----------------------------------------------------------------------------------------------------------------------------------
+
+main()

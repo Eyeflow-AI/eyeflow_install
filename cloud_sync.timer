@@ -1,7 +1,7 @@
 [Unit]
-Description=Automatic update edge
+Description=Automatic sync edge with cloud
 [Timer]
-Unit=update_edge.service
+Unit=cloud_sync.service
 OnBootSec=15
 OnUnitActiveSec=60
 AccuracySec=500msec

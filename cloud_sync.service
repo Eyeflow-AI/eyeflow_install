@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync Edge with Cloud
+
+[Service]
+Type=simple
+ExecStart=python3 /opt/eyeflow/install/cloud_sync.py
+
+[Install]
+WantedBy=multi-user.target

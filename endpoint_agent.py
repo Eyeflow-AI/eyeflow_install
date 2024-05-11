@@ -164,8 +164,8 @@ def endpoint_start(request_parms, port):
         file_list = [
             "eyeflow_conf.json",
             "run_endpoint.sh",
-            "update_edge.py",
-            "update_eyeflow_version.py",
+            "cloud_sync.py",
+            "upgrade_edge",
             "upload_extracts.py",
             "utils.py"
         ]

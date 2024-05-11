@@ -184,7 +184,12 @@ def main(args=None):
         edge_data = utils.get_edge_data(app_token)
         if not edge_data:
             log.warning("Fail getting edge_data from cloud")
-            exit(1)
+            if not os.path.isfile(edge_data_filename):
+                log.error("Fail getting edge_data from local backup")
+                exit(1)
+
+            with open(edge_data_filename, 'r') as fp:
+                edge_data = json.load(fp)
         else:
             with open(edge_data_filename, 'w') as fp:
                 json.dump(edge_data, fp, default=str)
@@ -196,14 +201,13 @@ def main(args=None):
                 execute_tasks(app_token, edge_data["edge_tasks"])
 
             if "flow_name" in edge_data["edge_data"]:
-                log.info(f'Running Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
+                log.info(f'Active Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
                 flow_id = edge_data["edge_data"]["flow_id"]
                 flow_data = edge_client.get_flow(app_token, flow_id)
                 if not flow_data:
                     log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
                     exit(1)
 
-                utils.update_components(app_token, flow_data)
                 utils.update_models(app_token, flow_data)
         elif "endpoint_data" in edge_data:
             log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
@@ -213,7 +217,6 @@ def main(args=None):
                 log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
                 exit(1)
 
-            utils.update_components(app_token, flow_data)
             utils.update_models(app_token, flow_data)
         elif "token_data" in edge_data and "endpoint_parms" in edge_data["token_data"]:
             log.info(f'Endpoint: {edge_data["token_data"]["endpoint_id"]}')
@@ -223,7 +226,6 @@ def main(args=None):
                 log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
                 exit(1)
 
-            utils.update_components(app_token, flow_data)
             utils.update_models(app_token, flow_data)
 
     except Exception as expt:
