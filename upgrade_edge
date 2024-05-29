@@ -12,6 +12,7 @@ import sys
 import json
 import subprocess
 import datetime
+import tarfile
 import traceback
 import argparse
 
@@ -63,37 +64,20 @@ def install_edge(app_token, version="latest"):
     # retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
 
     pack_doc, pack_filename = utils.download_pack(app_token, edge_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
-    run_status = process_status("eyeflow_edge")
-    if run_status:
-        log.info("Stoping edge to update")
-        ret = subprocess.run(os.path.join(os.path.dirname(__file__), "stop_edge"), shell=True, capture_output=True)
-        if ret.returncode != 0:
-            log.error(f"Fail in Stop edge - result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
-            # raise Exception(f"Fail installing eyeflow_edge: {ret.stdout.decode()} - {ret.stderr.decode()}")
 
     try:
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
 
-    if run_status:
-        log.info("Starting edge")
-        ret = subprocess.run(os.path.join(os.path.dirname(__file__), "start_edge"), shell=True, capture_output=True)
-        if ret.returncode != 0:
-            log.error(f"Fail in Start edge - result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
-            raise Exception(f"Fail installing eyeflow_edge: {ret.stdout.decode()} - {ret.stderr.decode()}")
-
-        if retcode != 0:
-            raise Exception(f"Fail installing eyeflow_edge: {stdout} - {stderr}")
+    if retcode != 0:
+        raise Exception(f"Fail installing eyeflow_edge: {stdout} - {stderr}")
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def check_eyeflow_version(app_token):
-    if not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "eyeflow_edge")):
-        install_edge(app_token)
-        return
-
-    if not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")):
+def upgrade_eyeflow_version(app_token):
+    if (not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "eyeflow_edge")) or
+        not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json"))):
         install_edge(app_token)
         return
 
@@ -112,65 +96,247 @@ def check_eyeflow_version(app_token):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def update_components():
-    app_info, app_token = utils.get_license()
-    if "edge_id" in app_info:
-        log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
-    elif "endpoint_id" in app_info:
-        log.info(f'Endpoint ID: {app_info["endpoint_id"]}')
+def get_flow_data(app_token):
+    edge_data_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_data.json")
+    edge_data = utils.get_edge_data(app_token)
+    if not edge_data:
+        log.warning("Fail getting edge_data from cloud")
+        if not os.path.isfile(edge_data_filename):
+            raise Exception("Fail getting edge_data from local backup")
 
-    utils.check_license(app_info)
+        with open(edge_data_filename, 'r') as fp:
+            edge_data = json.load(fp)
+    else:
+        with open(edge_data_filename, 'w') as fp:
+            json.dump(edge_data, fp, default=str)
 
-    try:
-        edge_data_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_data.json")
-        edge_data = utils.get_edge_data(app_token)
-        if not edge_data:
-            log.warning("Fail getting edge_data from cloud")
-            if not os.path.isfile(edge_data_filename):
-                log.error("Fail getting edge_data from local backup")
-                exit(1)
+    if "edge_data" in edge_data:
+        log.info(f'EyeflowEdge: {edge_data["edge_data"]["name"]} - {edge_data["edge_data"]["_id"]}')
 
-            with open(edge_data_filename, 'r') as fp:
-                edge_data = json.load(fp)
-        else:
-            with open(edge_data_filename, 'w') as fp:
-                json.dump(edge_data, fp, default=str)
-
-        if "edge_data" in edge_data:
-            log.info(f'EyeflowEdge: {edge_data["edge_data"]["name"]} - {edge_data["edge_data"]["_id"]}')
-
-            if "flow_name" in edge_data["edge_data"]:
-                log.info(f'Active Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
-                flow_id = edge_data["edge_data"]["flow_id"]
-                flow_data = edge_client.get_flow(app_token, flow_id)
-                if not flow_data:
-                    log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
-                    exit(1)
-
-                utils.update_components(app_token, flow_data)
-        elif "endpoint_data" in edge_data:
-            log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
-            flow_id = edge_data["endpoint_data"]["flow_id"]
+        if "flow_name" in edge_data["edge_data"]:
+            log.info(f'Active Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
+            flow_id = edge_data["edge_data"]["flow_id"]
             flow_data = edge_client.get_flow(app_token, flow_id)
-            if not flow_data:
-                log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
-                exit(1)
 
-            utils.update_components(app_token, flow_data)
-        elif "token_data" in edge_data and "endpoint_parms" in edge_data["token_data"]:
-            log.info(f'Endpoint: {edge_data["token_data"]["endpoint_id"]}')
-            flow_id = edge_data["token_data"]["endpoint_parms"]["flow_id"]
-            flow_data = edge_client.get_flow(app_token, flow_id)
-            if not flow_data:
-                log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
-                exit(1)
+    elif "endpoint_data" in edge_data:
+        log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
+        flow_id = edge_data["endpoint_data"]["flow_id"]
+        flow_data = edge_client.get_flow(app_token, flow_id)
 
-            utils.update_components(app_token, flow_data)
+    elif "token_data" in edge_data and "endpoint_parms" in edge_data["token_data"]:
+        log.info(f'Endpoint: {edge_data["token_data"]["endpoint_id"]}')
+        flow_id = edge_data["token_data"]["endpoint_parms"]["flow_id"]
+        flow_data = edge_client.get_flow(app_token, flow_id)
 
-    except Exception as expt:
-        log.error(f'Fail updating edge data {expt}')
-        log.error(traceback.format_exc())
-        exit(1)
+    else:
+        raise Exception(f"Fail getting flow from edge_data.")
+
+    if not flow_data:
+        raise Exception(f"Fail getting flow from local backup. Need to connect to cloud.")
+
+    return flow_data
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def get_edge_manifest(app_token):
+    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    if not os.path.isfile(manifest_filename):
+        log.info(f"Manifest file not found. Generating: " + manifest_filename)
+        man_edge_filename = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")
+        with open(man_edge_filename, 'r') as fp:
+            eyeflow_edge_doc = json.load(fp)
+
+        packs = {
+            eyeflow_edge_doc["pack_id"]: {
+                "info": {
+                    "name": eyeflow_edge_doc["name"],
+                    "version": eyeflow_edge_doc["version"],
+                    "date": datetime.datetime.strptime(eyeflow_edge_doc["compilation_date"], "%Y-%m-%d %H:%M:%S.%f%z")
+                },
+                "dependencies": []
+            }
+        }
+
+        lib_folder = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "../lib")
+        if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.2")):
+            packs[LIB_EDGE_PACK_ID] = {
+                "info": {
+                    "name": LIB_EDGE_PACK_NAME,
+                    "version": "2.0.0",
+                    "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.2")))
+                },
+                "dependencies": []
+            }
+
+        if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so")):
+            packs[LIB_EDGE_PACK_ID] = {
+                "info": {
+                    "name": LIB_EDGE_PACK_NAME,
+                    "version": "1.0.0",
+                    "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so")))
+                },
+                "dependencies": []
+            }
+
+        flow_data = get_flow_data(app_token=app_token)
+        component_folder = LOCAL_CONFIG["file-service"]["components"]
+        for comp in flow_data["nodes"]:
+            if comp["component_id"] in packs:
+                continue
+
+            pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
+            if not os.path.isfile(pack_file):
+                raise Exception(f"Fail getting component {comp['component_name']}-{comp['component_id']}")
+
+            with open(pack_file) as fp:
+                component_doc = json.load(fp)
+
+            if "dependencies" not in component_doc:
+                component_doc["dependencies"] = {
+                    "eyeflow_edge": {
+                        "min": "0.9.63",
+                        "max": "0.9.*"
+                    },
+                    "edge_sdk_libs": {
+                        "min": "1.0.0",
+                        "max": "1.*"
+                    }
+                }
+
+            for dep in component_doc["dependencies"]:
+                if dep == "edge_sdk_libs" and component_doc["dependencies"][dep]["min"] == "24.01.28":
+                    component_doc["dependencies"][dep]["min"] = "1.0.0"
+                    component_doc["dependencies"][dep]["max"] = "1.*"
+                if dep == "eyeflow_edge" and component_doc["dependencies"][dep]["max"] == "0.9.63":
+                    component_doc["dependencies"][dep]["max"] = "0.9.*"
+
+            packs[comp["component_id"]] = {
+                "info": {
+                    "name": component_doc["pack_name"],
+                    "version": component_doc["version"],
+                    "date": datetime.datetime.strptime(component_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z")
+                },
+                "dependencies": component_doc["dependencies"]
+            }
+
+        with open(manifest_filename, 'w') as fp:
+            json.dump(packs, fp, default=str)
+
+    else:
+        with open(manifest_filename, 'r') as fp:
+            packs = json.load(fp)
+
+    return packs
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def get_last_version(app_token, pack_doc):
+    log.info(f"Get version for pack {pack_doc['pack_name']}-{pack_doc['pack_id']}")
+
+    packs = get_edge_manifest(app_token)
+    pack_names = {}
+    for pack_id in packs:
+        pack_names[packs[pack_id]["info"]["name"]] = pack_id
+
+    if "dependencies" in pack_doc and check_dependencies(pack_doc["dependencies"], packs, pack_names):
+        return pack_doc["version"]
+
+    if "version_list" in pack_doc:
+        version_list = sorted(pack_doc["version_list"], key=lambda x: datetime.datetime.strptime(x["date"], "%Y-%m-%dT%H:%M:%S.%f%z"), reverse=True)
+        for version in version_list:
+            if "dependencies" in version and check_dependencies(version["dependencies"], packs, pack_names):
+                return version["version"]
+
+    return None
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def check_dependencies(dependencies, packs, pack_names):
+    for dep in dependencies:
+        if dep not in pack_names:
+            log.info(f"Invalid dependency for pack: {dep}")
+            return False
+
+        dep_ver_min = dependencies[dep]["min"].split(".")
+        dep_ver_max = dependencies[dep]["max"].split(".")
+
+        if dep == "edge_sdk_libs" and dependencies[dep]["min"] == "24.01.28":
+            dep_ver_min = ['1', '0', '0']
+            dep_ver_max = ['1', '*']
+
+        if dep == "eyeflow_edge" and dependencies[dep]["max"] == "0.9.63":
+            dep_ver_max = ['0', '9', '*']
+
+        pack_version = packs[pack_names[dep]]["info"]["version"].split(".")
+        for level in range(3):
+            if level < len(dep_ver_min) and dep_ver_min[level] != "*":
+                if int(pack_version[level]) < int(dep_ver_min[level]):
+                    log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} < Dep-ver Min: {dep_ver_min}")
+                    return False
+
+            if level < len(dep_ver_max) and dep_ver_max[level] != "*":
+                if int(pack_version[level]) > int(dep_ver_max[level]):
+                    log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} > Dep-ver Max: {dep_ver_max}")
+                    return False
+
+        return True
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def upgrade_components(app_token, flow_data):
+    """
+    Update components for processing flow
+    """
+
+    # log.info(f"Update components for flow")
+
+    component_folder = LOCAL_CONFIG["file-service"]["components"]
+    os.makedirs(component_folder, exist_ok=True)
+    components_checked = []
+    for comp in flow_data["nodes"]:
+        if comp["component_id"] in components_checked:
+            continue
+
+        pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
+        pack_local_doc = None
+        if os.path.isfile(pack_file):
+            with open(pack_file) as fp:
+                pack_local_doc = json.load(fp)
+
+        try:
+            pack_cloud_doc = None
+            pack_cloud_doc = utils.get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]})
+        except:
+            pass
+
+        components_checked.append(comp["component_id"])
+
+        if pack_cloud_doc is not None:
+            version = get_last_version(app_token, pack_cloud_doc)
+            if not version:
+                log.warning(f"Fail getting dependencies for component {comp['component_name']}-{comp['component_id']}")
+                continue
+
+            if pack_local_doc is None or \
+                (pack_local_doc is not None and datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z") > datetime.datetime.strptime(pack_local_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z")):
+                log.info(f'Updating component: {comp["component_name"]} - {comp["component_id"]} - version: {pack_cloud_doc["version"]}')
+                pack_doc, pack_filename = utils.download_pack(
+                    app_token,
+                    {"name": comp["component_name"], "id": comp["component_id"], "version": version},
+                    pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"]
+                )
+
+                with open(pack_file, 'w') as fp:
+                    json.dump(pack_doc, fp, default=str)
+
+                component_dest = os.path.join(component_folder, comp["component_id"])
+                with tarfile.open(pack_filename, 'r') as tar:
+                    tar.extractall(component_dest)
+
+        elif pack_cloud_doc is None and pack_local_doc is None:
+            raise Exception(f'Fail getting component {comp["component_name"]}-{comp["component_id"]}')
+
+        components_checked.append(comp["component_id"])
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -192,13 +358,24 @@ def main(args=None):
     args = parse_args(args)
 
     app_info, app_token = utils.get_license()
-    log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    if "edge_id" in app_info:
+        log.info(f'Edge ID: {app_info["edge_id"]} - System ID: {app_info.get("device_sn")}')
+    elif "endpoint_id" in app_info:
+        log.info(f'Endpoint ID: {app_info["endpoint_id"]}')
+
     utils.check_license(app_info)
 
     if args.upgrade_eyeflow:
-        check_eyeflow_version(app_token)
+        upgrade_eyeflow_version(app_token)
 
-    update_components()
+    try:
+        flow_data = get_flow_data(app_token)
+        upgrade_components(app_token, flow_data)
+
+    except Exception as expt:
+        log.error(f'Fail updating edge data {expt}')
+        log.error(traceback.format_exc())
+        exit(1)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 main()

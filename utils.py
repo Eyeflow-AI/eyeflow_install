@@ -128,7 +128,7 @@ def install_pack(pack_doc, filename):
             raise Exception(f"Pack does not have a setup script: {setup_script}")
 
         ret = subprocess.run(f"cd {pack_folder} && sh setup.sh", capture_output=True, shell=True)
-        log.info(f"Setup result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
+        # log.info(f"Setup result: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}")
         if ret.returncode != 0:
             err = f"Pack install fail: {ret.returncode}, {ret.stdout.decode()}, {ret.stderr.decode()}"
             log.error(err)
@@ -269,55 +269,6 @@ def update_models(app_token, flow_data):
 
                 if not os.path.isfile(model_file):
                     raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
-#----------------------------------------------------------------------------------------------------------------------------------
-
-
-def update_components(app_token, flow_data):
-    """
-    Update components for processing flow
-    """
-
-    # log.info(f"Update components for flow")
-
-    component_folder = LOCAL_CONFIG["file-service"]["components"]
-    os.makedirs(component_folder, exist_ok=True)
-    components_checked = []
-    for comp in flow_data["nodes"]:
-        if comp["component_id"] in components_checked:
-            continue
-
-        pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
-        pack_local_doc = None
-        if os.path.isfile(pack_file):
-            with open(pack_file) as fp:
-                pack_local_doc = json.load(fp)
-
-        try:
-            pack_cloud_doc = None
-            pack_cloud_doc = get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]})
-        except:
-            pass
-
-        if pack_cloud_doc is not None:
-            if pack_local_doc is None or \
-                (pack_local_doc is not None and datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z") > datetime.datetime.strptime(pack_local_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z")):
-                log.info(f'Updating component: {comp["component_name"]} - {comp["component_id"]} - version: {pack_cloud_doc["version"]}')
-                pack_doc, pack_filename = download_pack(app_token,
-                                                        {"name": comp["component_name"], "id": comp["component_id"], "version": pack_cloud_doc["version"]},
-                                                        pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"]
-                                                        )
-
-                with open(pack_file, 'w') as fp:
-                    json.dump(pack_doc, fp, default=str)
-
-                component_dest = os.path.join(component_folder, comp["component_id"])
-                with tarfile.open(pack_filename, 'r') as tar:
-                    tar.extractall(component_dest)
-
-        elif pack_cloud_doc is None and pack_local_doc is None:
-            raise Exception(f'Fail getting component {comp["component_name"]}-{comp["component_id"]}')
-
-        components_checked.append(comp["component_id"])
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
