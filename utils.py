@@ -50,7 +50,7 @@ def download_file(url, local_filename):
 def download_pack(app_token, pack, pack_folder):
     try:
         arch = get_device_arch()
-        os_name = get_os_version()
+        os_version = get_os_version()
         log.info(f'Download pack {pack["name"]}-{arch}')
 
         folder_path = Path(pack_folder)
@@ -58,7 +58,7 @@ def download_pack(app_token, pack, pack_folder):
             folder_path.mkdir(parents=True, exist_ok=True)
 
         endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
-        url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/?version={pack["version"]}'
+        url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/os/{os_version}/?version={pack["version"]}'
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
         payload = {"download_url": True}
         response = requests.get(url, headers=msg_headers, params=payload)
