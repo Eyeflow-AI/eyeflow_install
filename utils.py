@@ -50,6 +50,7 @@ def download_file(url, local_filename):
 def download_pack(app_token, pack, pack_folder):
     try:
         arch = get_device_arch()
+        os_name = get_os_version()
         log.info(f'Download pack {pack["name"]}-{arch}')
 
         folder_path = Path(pack_folder)
@@ -86,10 +87,11 @@ def download_pack(app_token, pack, pack_folder):
 def get_pack(app_token, pack):
     try:
         arch = get_device_arch()
+        os_version = get_os_version()
         # log.info(f'Get pack {pack["name"]}-{arch}')
 
         endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
-        url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/'
+        url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/os/{os_version}'
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
         payload = {"download_url": False}
         response = requests.get(url, headers=msg_headers, params=payload)
@@ -397,6 +399,24 @@ def get_device_arch():
     elif "x86_64" in plat_info:
         idx = plat_info.index("x86_64")
         return f"{plat_info[idx]}"
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def get_os_version():
+    with open("/etc/os-release", 'r') as fp:
+        text = fp.readlines()
+
+    os_name = None
+    version = None
+    for lin in text:
+        if lin.startswith("VERSION_ID="):
+            lin = lin.replace('\n', '')
+            version = lin.split('=')[-1].replace('"', '')
+        elif lin.startswith("ID="):
+            lin = lin.replace('\n', '')
+            os_name = lin.split('=')[-1].replace('"', '')
+
+    return f"{os_name}-{version}"
 #----------------------------------------------------------------------------------------------------------------------------------
 
 

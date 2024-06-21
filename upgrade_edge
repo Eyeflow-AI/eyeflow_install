@@ -60,12 +60,11 @@ def install_edge(app_token, version="latest"):
         "version": "latest"
     }
 
-    # pack_doc, pack_filename = utils.download_pack(app_token, lib_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
-    # retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
-
-    pack_doc, pack_filename = utils.download_pack(app_token, edge_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
-
     try:
+        pack_doc, pack_filename = utils.download_pack(app_token, lib_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+        retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
+
+        pack_doc, pack_filename = utils.download_pack(app_token, edge_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
@@ -185,7 +184,8 @@ def create_edge_manifest(app_token):
 
         pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
         if not os.path.isfile(pack_file):
-            raise Exception(f"Fail getting component {comp['component_name']}-{comp['component_id']}")
+            log.warning(f"Fail getting component {comp['component_name']}-{comp['component_id']}")
+            continue
 
         with open(pack_file) as fp:
             component_doc = json.load(fp)
@@ -426,4 +426,4 @@ def main(args=None):
         exit(1)
 #----------------------------------------------------------------------------------------------------------------------------------
 
-main()
+main(["--upgrade_eyeflow"])
