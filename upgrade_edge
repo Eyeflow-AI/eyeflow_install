@@ -118,6 +118,8 @@ def get_flow_data(app_token):
             log.info(f'Active Flow: {edge_data["edge_data"]["flow_name"]} - {edge_data["edge_data"]["flow_id"]} - Last modified: {edge_data["edge_data"]["flow_modified_date"]}')
             flow_id = edge_data["edge_data"]["flow_id"]
             flow_data = edge_client.get_flow(app_token, flow_id)
+        else:
+            raise Exception(f"Fail getting flow from edge_data.")
 
     elif "endpoint_data" in edge_data:
         log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')

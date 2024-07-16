@@ -3,6 +3,7 @@ version: '3.8'
 services:
   eyeflow_edge:
     image: eyeflowai/eyeflow_edge-x86_64
+    container_name: eyeflow_edge
     restart: unless-stopped
     volumes:
       - /opt/eyeflow/data:/opt/eyeflow/data
