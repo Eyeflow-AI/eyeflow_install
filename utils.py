@@ -259,6 +259,9 @@ def update_models(app_token, flow_data):
             if dataset_id not in datasets_downloaded:
                 datasets_downloaded.append(dataset_id)
                 model_folder = LOCAL_CONFIG["file-service"]["model"]
+                if not os.path.isdir(model_folder):
+                    os.makedirs(model_folder, exist_ok=True)
+
                 model_file = os.path.join(model_folder, dataset_id + ".onnx")
                 info_file = os.path.join(model_folder, dataset_id + ".json")
                 if os.path.isfile(info_file) and not os.path.isfile(model_file):
