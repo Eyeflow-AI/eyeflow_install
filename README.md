@@ -4,7 +4,7 @@ Eyeflow Scripts for setup and install
 ## Runtime
 Install the NVIDIA driver first
 On Ubuntu 20.04, you can install the NVIDIA driver with the following command:
- - ```sudo apt install nvidia-driver-535-server```
+ - ```sudo apt install nvidia-driver-550```
 
 On Azure VM, you can install the NVIDIA driver with the following command:
  - ```sudo apt install -y ubuntu-drivers-common && sudo ubuntu-drivers autoinstall```
