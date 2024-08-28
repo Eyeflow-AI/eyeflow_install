@@ -31,10 +31,20 @@ from eyeflow_sdk.log_obj import log
 from eyeflow_sdk import edge_client
 import utils
 
-EYEFLOW_EDGE_PACK_ID = "64fb7933f257ab6cb37ce65d"
-EYEFLOW_EDGE_PACK_NAME = "eyeflow_edge"
-LIB_EDGE_PACK_ID = "65a987e1e90f2032a3886890"
-LIB_EDGE_PACK_NAME = "edge_sdk_libs"
+base_packs = [
+    {
+        "id": "64fb7933f257ab6cb37ce65d",
+        "name": "eyeflow_edge"
+    },
+    {
+        "id": "65a987e1e90f2032a3886890",
+        "name": "edge_sdk_libs"
+    },
+    {
+        "id": "654fe19b5005439fd472652f",
+        "name": "libedge_sdk"
+    }
+]
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -47,32 +57,24 @@ def process_status(process_name):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def install_edge(app_token, version="latest"):
-    edge_pack = {
-        "name": EYEFLOW_EDGE_PACK_NAME,
-        "id": EYEFLOW_EDGE_PACK_ID,
-        "version": version
-    }
-
-    lib_pack = {
-        "name": LIB_EDGE_PACK_NAME,
-        "id": LIB_EDGE_PACK_ID,
-        "version": "latest"
-    }
-
+def install_pack(app_token, pack_info):
     try:
-        pack_doc, pack_filename = utils.download_pack(app_token, lib_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
-        retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
-
-        pack_doc, pack_filename = utils.download_pack(app_token, edge_pack, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+        pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
 
     if retcode != 0:
-        raise Exception(f"Fail installing eyeflow_edge: {stdout} - {stderr}")
+        raise Exception(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
 
-    create_edge_manifest(app_token)
+    update_edge_manifest(pack_doc)
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def install_edge(app_token):
+    for pack in base_packs:
+        pack["version"] = "latest"
+        install_pack(app_token, pack)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -82,18 +84,33 @@ def upgrade_eyeflow_version(app_token):
         install_edge(app_token)
         return
 
-    with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")) as fp:
-        manifest = json.load(fp)
+    # with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")) as fp:
+    #     manifest = json.load(fp)
 
-    pack_cloud_doc = None
-    try:
-        pack_cloud_doc = utils.get_pack(app_token, {"name": EYEFLOW_EDGE_PACK_NAME, "id": EYEFLOW_EDGE_PACK_ID})
-    except:
-        pass
+    manifest = get_edge_manifest()
 
-    if pack_cloud_doc is not None:
-        if datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z") > datetime.datetime.fromisoformat(manifest["compilation_date"]):
-            install_edge(app_token, version=pack_cloud_doc["version"])
+    for pack in base_packs:
+        pack_cloud_doc = None
+        try:
+            pack_cloud_doc = utils.get_pack(app_token, {"name": pack["name"], "id": pack["id"]})
+        except:
+            pass
+
+        if pack["id"] not in manifest:
+            pack["version"] = "latest"
+            install_pack(app_token, pack)
+            continue
+
+        if pack_cloud_doc is not None:
+            cloud_time = datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            if cloud_time.tzinfo is None or cloud_time.tzinfo.utcoffset(cloud_time) is None:
+                cloud_time = cloud_time.replace(tzinfo=datetime.timezone.utc)
+            local_time = datetime.datetime.fromisoformat(manifest[pack["id"]]["info"]["date"])
+            if local_time.tzinfo is None or local_time.tzinfo.utcoffset(local_time) is None:
+                local_time = local_time.replace(tzinfo=datetime.timezone.utc)
+            if cloud_time > local_time:
+                pack["version"] = pack_cloud_doc["version"]
+                install_pack(app_token, pack)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -159,9 +176,9 @@ def create_edge_manifest(app_token):
 
     lib_folder = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "../lib")
     if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.2")):
-        packs[LIB_EDGE_PACK_ID] = {
+        packs["65a987e1e90f2032a3886890"] = {
             "info": {
-                "name": LIB_EDGE_PACK_NAME,
+                "name": "edge_sdk_libs",
                 "version": "2.0.0",
                 "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.2")))
             },
@@ -169,9 +186,9 @@ def create_edge_manifest(app_token):
         }
 
     if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so")):
-        packs[LIB_EDGE_PACK_ID] = {
+        packs["65a987e1e90f2032a3886890"] = {
             "info": {
-                "name": LIB_EDGE_PACK_NAME,
+                "name": "edge_sdk_libs",
                 "version": "1.0.0",
                 "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so")))
             },
@@ -226,11 +243,8 @@ def create_edge_manifest(app_token):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def get_edge_manifest(app_token):
+def get_edge_manifest():
     manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
-    if not os.path.isfile(manifest_filename):
-        log.info(f"Manifest file not found. Generating: " + manifest_filename)
-        create_edge_manifest(app_token)
 
     with open(manifest_filename, 'r') as fp:
         packs = json.load(fp)
@@ -239,8 +253,8 @@ def get_edge_manifest(app_token):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def update_edge_manifest(app_token, component_doc):
-    packs = get_edge_manifest(app_token)
+def update_edge_manifest(component_doc):
+    packs = get_edge_manifest()
     if "dependencies" not in component_doc:
         component_doc["dependencies"] = {
             "eyeflow_edge": {
@@ -275,10 +289,10 @@ def update_edge_manifest(app_token, component_doc):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def get_last_version(app_token, pack_doc):
+def get_last_version(pack_doc):
     log.info(f"Get version for pack {pack_doc['pack_name']}-{pack_doc['pack_id']}")
 
-    packs = get_edge_manifest(app_token)
+    packs = get_edge_manifest()
     pack_names = {}
     for pack_id in packs:
         pack_names[packs[pack_id]["info"]["name"]] = pack_id
@@ -309,6 +323,9 @@ def check_dependencies(dependencies, packs, pack_names):
             dep_ver_min = ['1', '0', '0']
             dep_ver_max = ['1', '*']
 
+        if dep == "edge_sdk_libs" and dep_ver_max[0] == "2":
+            dep_ver_max = ['24', '*']
+
         if dep == "eyeflow_edge" and dependencies[dep]["max"] == "0.9.63":
             dep_ver_max = ['0', '9', '*']
 
@@ -324,7 +341,7 @@ def check_dependencies(dependencies, packs, pack_names):
                     log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} > Dep-ver Max: {dep_ver_max}")
                     return False
 
-        return True
+    return True
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -357,7 +374,7 @@ def upgrade_components(app_token, flow_data):
         components_checked.append(comp["component_id"])
 
         if pack_cloud_doc is not None:
-            version = get_last_version(app_token, pack_cloud_doc)
+            version = get_last_version(pack_cloud_doc)
             if not version:
                 log.warning(f"Fail getting dependencies for component {comp['component_name']}-{comp['component_id']}")
                 continue
@@ -381,7 +398,7 @@ def upgrade_components(app_token, flow_data):
                 with tarfile.open(pack_filename, 'r') as tar:
                     tar.extractall(component_dest)
 
-                update_edge_manifest(app_token, pack_doc)
+                update_edge_manifest(pack_doc)
 
         elif pack_cloud_doc is None and pack_local_doc is None:
             raise Exception(f'Fail getting component {comp["component_name"]}-{comp["component_id"]}')
@@ -415,6 +432,11 @@ def main(args=None):
 
     utils.check_license(app_info)
 
+    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    if not os.path.isfile(manifest_filename):
+        log.info(f"Manifest file not found. Generating: " + manifest_filename)
+        create_edge_manifest(app_token)
+
     if args.upgrade_eyeflow:
         upgrade_eyeflow_version(app_token)
 
@@ -428,4 +450,5 @@ def main(args=None):
         exit(1)
 #----------------------------------------------------------------------------------------------------------------------------------
 
-main(["--upgrade_eyeflow"])
+main()
+# main(["--upgrade_eyeflow"])
