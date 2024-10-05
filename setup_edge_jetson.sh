@@ -10,6 +10,7 @@ if [ $(dpkg-query -W -f='${Status}' python3-pip 2>/dev/null | grep -c "ok instal
 then
   echo "Installing Python libs"
   apt-get install -y --no-install-recommends \
+      libhdf5-dev \
       python3 \
       python3-pip \
       python3-dev \
@@ -60,7 +61,7 @@ fi
 if [ ! -f /opt/eyeflow/install/cloud_sync.py ];
 then
   echo "Download Eyeflow files"
-  wget https://eyeflow.ai/static/media/edge_install.tar.gz -P /tmp
+  wget https://github.com/Eyeflow-AI/eyeflow_install/releases/latest/download/edge_install.tar.gz -P /tmp
   tar -xzf /tmp/edge_install.tar.gz -C /opt/eyeflow/install
 
   cd /opt/eyeflow/install/
