@@ -441,9 +441,9 @@ def main():
 #----------------------------------------------------------------------------------------------------------------------------------
 
 BASE_PATH = "/opt/endpoint"
-EDGE_INSTALL_URL = "https://eyeflow.ai/static/media/edge_install.tar.gz"
+EDGE_INSTALL_URL = "https://github.com/Eyeflow-AI/eyeflow_install/releases/latest/download/edge_install.tar.gz"
 EDGE_INSTALL_FILE = "edge_install.tar.gz"
-MQ_URL = os.environ.get("MQ_URL", "amqp://eyeflow_app:G4r6DxUdC8g5u85Q@rabbitmq.eyeflow.ai:5672")
+MQ_URL = os.environ["MQ_URL"]
 SERVICES_MANAGER_QUEUE = os.environ.get("SERVICES_MANAGER_QUEUE", "services_manager") # "services_manager_dev"
 SERVICES_MANAGER_BROADCAST_QUEUE = os.environ.get("SERVICES_MANAGER_BROADCAST_QUEUE", "services_manager_broadcast") # "services_manager_broadcast_dev"
 PORT_RANGE = [8100, 8150]
