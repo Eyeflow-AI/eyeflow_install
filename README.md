@@ -11,11 +11,11 @@ On Azure VM, you can install the NVIDIA driver with the following command:
 
 Para instalação da máquina Edge x86:
  - ```sudo apt update && sudo apt install curl```
- - ```curl -sL https://eyeflow.ai/static/media/setup_edge_x86.sh | sudo EDGE_ENVIRONMENT=<environment_name> EDGE_DEVICE=<device_name> PASS=<eyeflow user password>  bash```
+ - ```curl -sL https://github.com/Eyeflow-AI/eyeflow_install/releases/latest/download/setup_edge_x86.sh | sudo EDGE_ENVIRONMENT=<environment_name> EDGE_DEVICE=<device_name> PASS=<eyeflow user password>  bash```
 
 Para instalação da máquina Edge Jetson:
  - ```sudo apt update && sudo apt install curl```
- - ```curl -sL https://eyeflow.ai/static/media/setup_edge_jetson.sh | sudo EDGE_ENVIRONMENT=<environment_name> EDGE_DEVICE=<device_name> PASS=<eyeflow user password> bash```
+ - ```curl -sL https://github.com/Eyeflow-AI/eyeflow_install/releases/latest/download/setup_edge_jetson.sh | sudo EDGE_ENVIRONMENT=<environment_name> EDGE_DEVICE=<device_name> PASS=<eyeflow user password> bash```
 
 Antes de fazer o setup é necessário criar o device no Eyeflow.App para emissão da licença.
 
