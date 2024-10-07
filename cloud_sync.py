@@ -9,7 +9,6 @@ Author: Alex Sobral de Freitas
 
 import os
 import traceback
-import sys
 import json
 import requests
 import jwt
@@ -18,19 +17,12 @@ import datetime
 import tarfile
 # from bson import ObjectId
 from eyeflow_sdk import edge_client
+from eyeflow_sdk.log_obj import CONFIG, log
 
-conf_path = "/opt/eyeflow/run/eyeflow_conf.json"
-if not os.path.exists(conf_path):
-    conf_path = os.path.join(os.path.dirname(__file__), "eyeflow_conf.json")
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
 
-if not os.path.exists(conf_path):
-    print("Error: eyeflow_conf.json not found")
-    sys.exit(1)
-
-with open(conf_path) as fp:
-    LOCAL_CONFIG = json.load(fp)
-
-from eyeflow_sdk.log_obj import log
 import utils
 #----------------------------------------------------------------------------------------------------------------------------------
 
@@ -70,7 +62,7 @@ def upload_file(app_token, task_id, filename):
             }, default=str)
         }
 
-        response = requests.post(url, files=files, data=values, headers=msg_headers)
+        response = requests.post(url, files=files, data=values, headers=msg_headers, proxies=proxies)
 
         os.remove(tar_filename)
 
@@ -115,7 +107,7 @@ def post_task_result(app_token, task_id, retcode, stdout, stderr):
             }
         }
 
-        response = requests.post(url, json=event, headers=msg_headers)
+        response = requests.post(url, json=event, headers=msg_headers, proxies=proxies)
 
         if response.status_code != 201:
             raise Exception(f"Failing insert task result: {response.json()}")
@@ -139,7 +131,7 @@ def execute_tasks(app_token, edge_tasks):
     for task in edge_tasks:
         if task["task"]["type"] == "install_pack":
             log.info(f'Install pack: {task["task"]["params"]["pack"]["name"]}')
-            pack_doc, pack_filename = utils.download_pack(app_token, task["task"]["params"]["pack"], pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+            pack_doc, pack_filename = utils.download_pack(app_token, task["task"]["params"]["pack"], pack_folder=CONFIG["file-service"]["temp_folder"])
             if pack_doc is not None:
                 retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
                 post_task_result(app_token, task_id=task["_id"], retcode=retcode, stdout=stdout, stderr=stderr)
@@ -180,7 +172,7 @@ def main(args=None):
     utils.check_license(app_info)
 
     try:
-        edge_data_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_data.json")
+        edge_data_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_data.json")
         edge_data = utils.get_edge_data(app_token)
         if not edge_data:
             log.warning("Fail getting edge_data from cloud")

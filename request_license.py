@@ -8,17 +8,11 @@ import utils
 import requests
 import argparse
 # from bson import ObjectId
+from eyeflow_sdk.log_obj import CONFIG
 
-conf_path = os.path.join(os.path.dirname(__file__), "eyeflow_conf.json")
-if not os.path.exists(conf_path):
-    conf_path = "/opt/eyeflow/run/eyeflow_conf.json"
-
-if not os.path.exists(conf_path):
-    print("Error: eyeflow_conf.json not found")
-    sys.exit(1)
-
-with open(conf_path) as fp:
-    LOCAL_CONFIG = json.load(fp)
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
 #----------------------------------------------------------------------------------------------------------------------------------
 
 def parse_args(args):
@@ -62,7 +56,7 @@ def main(args=None):
 
     # Start validation process
     validated = False
-    response = requests.post(f"{LOCAL_CONFIG['ws']}/edge/activate/", data=device_info)
+    response = requests.post(f"{CONFIG['ws']}/edge/activate/", data=device_info, proxies=proxies)
     if (response.json().get('payload')):
         validation_code = response.json()['payload']['validation_code']
         print('Enter this code on the device at Eyeflow App https://app.eyeflow.ai/app/devices')
@@ -76,11 +70,11 @@ def main(args=None):
         print("Waiting validation on Eyeflow App ", end="", flush=True)
         while not validated:
             print('.', end="", flush=True)
-            get_response = requests.get(f"{LOCAL_CONFIG['ws']}/edge/check-validation/?edge_id={checking_info['edge_id']}&environment_id={checking_info['environment_id']}&validation_code={checking_info['validation_code']}")
+            get_response = requests.get(f"{CONFIG['ws']}/edge/check-validation/?edge_id={checking_info['edge_id']}&environment_id={checking_info['environment_id']}&validation_code={checking_info['validation_code']}", proxies=proxies)
             if (get_response.json().get('ok') == True):
-                with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], 'edge.license'), 'w') as _license:
+                with open(os.path.join(CONFIG["file-service"]["run_folder"], 'edge.license'), 'w') as _license:
                     _license.write(get_response.json()['info']['token'])
-                with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], 'edge-key.pub'), 'w') as _pub:
+                with open(os.path.join(CONFIG["file-service"]["run_folder"], 'edge-key.pub'), 'w') as _pub:
                     _pub.write(get_response.json()['info']['public_key'])
                 validated = True
                 print('Validated!')

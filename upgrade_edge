@@ -15,20 +15,13 @@ import datetime
 import tarfile
 import traceback
 import argparse
-
-conf_path = "/opt/eyeflow/run/eyeflow_conf.json"
-if not os.path.exists(conf_path):
-    conf_path = os.path.join(os.path.dirname(__file__), "eyeflow_conf.json")
-
-if not os.path.exists(conf_path):
-    print("Error: eyeflow_conf.json not found")
-    sys.exit(1)
-
-with open(conf_path) as fp:
-    LOCAL_CONFIG = json.load(fp)
-
-from eyeflow_sdk.log_obj import log
+from eyeflow_sdk.log_obj import CONFIG, log
 from eyeflow_sdk import edge_client
+
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
+
 import utils
 
 base_packs = [
@@ -59,7 +52,7 @@ def process_status(process_name):
 
 def install_pack(app_token, pack_info):
     try:
-        pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"])
+        pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"])
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
@@ -79,12 +72,12 @@ def install_edge(app_token):
 
 
 def upgrade_eyeflow_version(app_token):
-    if (not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "eyeflow_edge")) or
-        not os.path.isfile(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json"))):
+    if (not os.path.isfile(os.path.join(CONFIG["file-service"]["run_folder"], "eyeflow_edge")) or
+        not os.path.isfile(os.path.join(CONFIG["file-service"]["run_folder"], "manifest.json"))):
         install_edge(app_token)
         return
 
-    # with open(os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")) as fp:
+    # with open(os.path.join(CONFIG["file-service"]["run_folder"], "manifest.json")) as fp:
     #     manifest = json.load(fp)
 
     manifest = get_edge_manifest()
@@ -115,7 +108,7 @@ def upgrade_eyeflow_version(app_token):
 
 
 def get_flow_data(app_token):
-    edge_data_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_data.json")
+    edge_data_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_data.json")
     edge_data = utils.get_edge_data(app_token)
     if not edge_data:
         log.warning("Fail getting edge_data from cloud")
@@ -159,7 +152,7 @@ def get_flow_data(app_token):
 
 
 def create_edge_manifest(app_token):
-    man_edge_filename = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "manifest.json")
+    man_edge_filename = os.path.join(CONFIG["file-service"]["run_folder"], "manifest.json")
     with open(man_edge_filename, 'r') as fp:
         eyeflow_edge_doc = json.load(fp)
 
@@ -174,7 +167,7 @@ def create_edge_manifest(app_token):
         }
     }
 
-    lib_folder = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "../lib")
+    lib_folder = os.path.join(CONFIG["file-service"]["run_folder"], "../lib")
     if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.2")):
         packs["65a987e1e90f2032a3886890"] = {
             "info": {
@@ -196,7 +189,7 @@ def create_edge_manifest(app_token):
         }
 
     flow_data = get_flow_data(app_token=app_token)
-    component_folder = LOCAL_CONFIG["file-service"]["components"]
+    component_folder = CONFIG["file-service"]["components"]
     for comp in flow_data["nodes"]:
         if comp["component_id"] in packs:
             continue
@@ -237,14 +230,14 @@ def create_edge_manifest(app_token):
             "dependencies": component_doc["dependencies"]
         }
 
-    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     with open(manifest_filename, 'w') as fp:
         json.dump(packs, fp, default=str)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
 def get_edge_manifest():
-    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
 
     with open(manifest_filename, 'r') as fp:
         packs = json.load(fp)
@@ -283,7 +276,7 @@ def update_edge_manifest(component_doc):
         "dependencies": component_doc["dependencies"]
     }
 
-    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     with open(manifest_filename, 'w') as fp:
         json.dump(packs, fp, default=str)
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -352,7 +345,7 @@ def upgrade_components(app_token, flow_data):
 
     # log.info(f"Update components for flow")
 
-    component_folder = LOCAL_CONFIG["file-service"]["components"]
+    component_folder = CONFIG["file-service"]["components"]
     os.makedirs(component_folder, exist_ok=True)
     components_checked = []
     for comp in flow_data["nodes"]:
@@ -388,7 +381,7 @@ def upgrade_components(app_token, flow_data):
                 pack_doc, pack_filename = utils.download_pack(
                     app_token,
                     {"name": comp["component_name"], "id": comp["component_id"], "version": version},
-                    pack_folder=LOCAL_CONFIG["file-service"]["temp_folder"]
+                    pack_folder=CONFIG["file-service"]["temp_folder"]
                 )
 
                 with open(pack_file, 'w') as fp:
@@ -432,7 +425,7 @@ def main(args=None):
 
     utils.check_license(app_info)
 
-    manifest_filename = os.path.join(LOCAL_CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     if not os.path.isfile(manifest_filename):
         log.info(f"Manifest file not found. Generating: " + manifest_filename)
         create_edge_manifest(app_token)

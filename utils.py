@@ -12,28 +12,20 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from eyeflow_sdk.log_obj import log
+from eyeflow_sdk.log_obj import CONFIG, log
 from eyeflow_sdk import jetson_utils
 from eyeflow_sdk import edge_client
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
-conf_path = "/opt/eyeflow/run/eyeflow_conf.json"
-if not os.path.exists(conf_path):
-    conf_path = os.path.join(os.path.dirname(__file__), "eyeflow_conf.json")
-
-if not os.path.exists(conf_path):
-    print("Error: eyeflow_conf.json not found")
-    sys.exit(1)
-
-with open(conf_path) as fp:
-    LOCAL_CONFIG = json.load(fp)
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
 #----------------------------------------------------------------------------------------------------------------------------------
-
 
 def download_file(url, local_filename):
     os.makedirs(os.path.dirname(local_filename), exist_ok=True)
-    with requests.get(url, stream=True) as r:
+    with requests.get(url, stream=True, proxies=proxies) as r:
         r.raise_for_status()
 
         if os.path.isfile(local_filename):
@@ -61,7 +53,7 @@ def download_pack(app_token, pack, pack_folder):
         url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/os/{os_version}/?version={pack["version"]}'
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
         payload = {"download_url": True}
-        response = requests.get(url, headers=msg_headers, params=payload)
+        response = requests.get(url, headers=msg_headers, params=payload, proxies=proxies)
 
         if response.status_code != 200:
             log.error(f'Failing downloading pack {pack["name"]}: {response.json()}')
@@ -94,7 +86,7 @@ def get_pack(app_token, pack):
         url = f'{endpoint}/pack/{pack["id"]}/arch/{arch}/os/{os_version}'
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
         payload = {"download_url": False}
-        response = requests.get(url, headers=msg_headers, params=payload)
+        response = requests.get(url, headers=msg_headers, params=payload, proxies=proxies)
 
         if response.status_code != 200:
             log.error(f'Failing in get pack {pack["name"]}: {response.json()}')
@@ -157,7 +149,7 @@ def get_model(app_token, dataset_id, model_folder, model_type="tensorflow"):
         url = f"{endpoint}/published-model-v2/{dataset_id}/"
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
         payload = {"download_url": False}
-        response = requests.get(url, headers=msg_headers, params=payload)
+        response = requests.get(url, headers=msg_headers, params=payload, proxies=proxies)
 
         if response.status_code != 200:
             if local_doc:
@@ -171,7 +163,7 @@ def get_model(app_token, dataset_id, model_folder, model_type="tensorflow"):
             return local_doc
 
         payload = {"download_url": True}
-        response = requests.get(url, headers=msg_headers, params=payload)
+        response = requests.get(url, headers=msg_headers, params=payload, proxies=proxies)
 
         if response.status_code != 200:
             if local_doc:
@@ -258,7 +250,7 @@ def update_models(app_token, flow_data):
             dataset_id = comp["options"]["dataset_id"]
             if dataset_id not in datasets_downloaded:
                 datasets_downloaded.append(dataset_id)
-                model_folder = LOCAL_CONFIG["file-service"]["model"]
+                model_folder = CONFIG["file-service"]["model"]
                 if not os.path.isdir(model_folder):
                     os.makedirs(model_folder, exist_ok=True)
 
@@ -289,12 +281,12 @@ def upload_flow_extracts(app_token, flow_data, max_examples=400):
         if "dataset_id" in comp["options"] and comp["options"]["dataset_id"] not in datasets_uploaded:
             dataset_id = comp["options"]["dataset_id"]
             datasets_uploaded.append(dataset_id)
-            extract_path = os.path.join(LOCAL_CONFIG["file-service"]["extract"], dataset_id)
+            extract_path = os.path.join(CONFIG["file-service"]["extract"], dataset_id)
             files_uploaded = os.listdir(extract_path)
             if not edge_client.upload_extract(
                 app_token,
                 dataset_id,
-                extract_folder=LOCAL_CONFIG["file-service"]["extract"],
+                extract_folder=CONFIG["file-service"]["extract"],
                 max_files=max_examples,
                 thumb_size=128
             ):
@@ -311,7 +303,7 @@ def upload_flow_extracts(app_token, flow_data, max_examples=400):
 
 def get_license(filename="edge.license"):
     # read app_token
-    license_file = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], filename)
+    license_file = os.path.join(CONFIG["file-service"]["run_folder"], filename)
     if not os.path.isfile(license_file):
         log.error(f'Error: license_file not found {license_file}')
         raise Exception(f'Error: license_file not found {license_file}')
@@ -319,7 +311,7 @@ def get_license(filename="edge.license"):
     with open(license_file, 'r') as fp:
         app_token = fp.read()
 
-    key_file = os.path.join(LOCAL_CONFIG["file-service"]["run_folder"], "edge-key.pub")
+    key_file = os.path.join(CONFIG["file-service"]["run_folder"], "edge-key.pub")
     if not os.path.isfile(key_file):
         log.error(f'Error: token pub key not found {key_file}')
         raise Exception(f'Error: token pub key not found {key_file}')
@@ -456,7 +448,7 @@ def get_edge_data(app_token):
         log.info(f"Get edge_data")
         endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
         msg_headers = {'Authorization' : f'Bearer {app_token}'}
-        response = requests.get(f"{endpoint}", headers=msg_headers)
+        response = requests.get(f"{endpoint}", headers=msg_headers, proxies=proxies)
 
         if response.status_code != 200:
             log.error(f"Failing get edge_data: {response.json()}")

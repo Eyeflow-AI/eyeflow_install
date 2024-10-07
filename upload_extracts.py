@@ -13,29 +13,28 @@ import sys
 import argparse
 import json
 from eyeflow_sdk import edge_client
+from eyeflow_sdk.log_obj import CONFIG, log
 
-os.environ["CONF_PATH"] = os.path.dirname(__file__)
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
 
-with open(os.path.join(os.path.dirname(__file__), "../run/", "eyeflow_conf.json")) as fp:
-    LOCAL_CONFIG = json.load(fp)
-
-from eyeflow_sdk.log_obj import log
 import utils
 #----------------------------------------------------------------------------------------------------------------------------------
 
 def get_dataset_folder(dataset):
-    dataset_folder = os.path.join(LOCAL_CONFIG["file-service"]["extract"], dataset)
+    dataset_folder = os.path.join(CONFIG["file-service"]["extract"], dataset)
     if os.path.isdir(dataset_folder):
         return dataset_folder, dataset
 
-    for dset in os.listdir(LOCAL_CONFIG["file-service"]["model"]):
-        dataset_folder = os.path.join(LOCAL_CONFIG["file-service"]["model"], dset)
+    for dset in os.listdir(CONFIG["file-service"]["model"]):
+        dataset_folder = os.path.join(CONFIG["file-service"]["model"], dset)
         if os.path.isfile(os.path.join(dataset_folder, dset + ".json")):
             with open(os.path.join(dataset_folder, dset + ".json")) as fp:
                 dset_data = json.load(fp)
 
             if dset_data["name"] == dataset or dset_data["info"]["long_name"] == dataset:
-                dataset_folder = os.path.join(LOCAL_CONFIG["file-service"]["extract"], dset_data["_id"])
+                dataset_folder = os.path.join(CONFIG["file-service"]["extract"], dset_data["_id"])
                 if os.path.isdir(dataset_folder):
                     return dataset_folder, dset_data["_id"]
 
@@ -79,7 +78,7 @@ def main(args=None):
         if not edge_client.upload_extract(
             app_token,
             dataset_id,
-            extract_folder=LOCAL_CONFIG["file-service"]["extract"],
+            extract_folder=CONFIG["file-service"]["extract"],
             max_files=800,
             thumb_size=128
         ):

@@ -17,5 +17,6 @@
         "components": "/opt/eyeflow/components"
     },
     "flow_folder": "/opt/eyeflow/data/flow",
-    "ws": "https://app.eyeflow.ai"
+    "ws": "https://app.eyeflow.ai",
+    "proxies": {}
 }
