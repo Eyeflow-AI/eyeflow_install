@@ -26,6 +26,9 @@ files_list = [
     "utils.py"
 ]
 
+if not os.path.exists("./tmp"):
+    os.mkdir("tmp")
+
 pack_name = "./tmp/edge_install.tar.gz"
 with tarfile.open(pack_name, "w:gz") as tar:
     for file in files_list:

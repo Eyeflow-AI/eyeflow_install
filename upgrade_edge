@@ -60,7 +60,11 @@ def install_pack(app_token, pack_info):
     if retcode != 0:
         raise Exception(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
 
-    update_edge_manifest(pack_doc)
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    if not os.path.isfile(manifest_filename):
+        create_edge_manifest(app_token)
+    else:
+        update_edge_manifest(pack_doc)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -425,13 +429,13 @@ def main(args=None):
 
     utils.check_license(app_info)
 
+    if args.upgrade_eyeflow:
+        upgrade_eyeflow_version(app_token)
+
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     if not os.path.isfile(manifest_filename):
         log.info(f"Manifest file not found. Generating: " + manifest_filename)
         create_edge_manifest(app_token)
-
-    if args.upgrade_eyeflow:
-        upgrade_eyeflow_version(app_token)
 
     try:
         flow_data = get_flow_data(app_token)
