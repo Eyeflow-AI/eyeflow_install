@@ -1,13 +1,13 @@
 echo "Edge installation started"
 
 apt update
-if [ $(dpkg-query -W -f='${Status}' libreoffice 2>/dev/null | grep -c "ok installed") -eq 1 ];
+if [ $(dpkg-query -W -f='${Status}' rhythmbox 2>/dev/null | grep -c "ok installed") -eq 1 ];
 then
-  apt purge -y thunderbird* libreoffice* remmina* rhythmbox* pulseaudio* aisleriot* cheese* gnome-mahjongg* gnome-mines* gnome-sudoku* gnome-todo* gnome-calendar* gnome-contacts* gnome-weather* gnome-maps* gnome-documents* gnome-photos* gnome-music*
+  apt purge -y thunderbird* libreoffice* remmina* rhythmbox* aisleriot* gnome-mahjongg* gnome-mines* gnome-sudoku* gnome-todo* gnome-calendar* gnome-contacts* gnome-weather* gnome-maps* gnome-documents* gnome-photos* gnome-music*
 fi
 
+apt autoremove -y
 apt upgrade -y
-apt autoremove
 
 if [ $(dpkg-query -W -f='${Status}' nvidia-jetpack 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
@@ -16,10 +16,15 @@ fi
 
 if [ $(dpkg-query -W -f='${Status}' wget 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-  apt install -y curl wget
+  apt install -y curl wget nano
 fi
 
-/usr/sbin/nvpmodel -m 0
+if [ $(dpkg-query -W -f='${Status}' nano 2>/dev/null | grep -c "ok installed") -eq 0 ];
+then
+  apt install -y nano
+fi
+
+no | /usr/sbin/nvpmodel -m 0 2>/dev/null
 
 if [ $(dpkg-query -W -f='${Status}' python3-pip 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
@@ -103,3 +108,7 @@ python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
 python3 /opt/eyeflow/install/cloud_sync.py
 
 echo "Edge installation finished"
+
+
+# rm /home/eyeflow/Desktop/nv*
+# gsettings set org.gnome.desktop.background picture-uri file:///opt/eyeflow/install/eyeflow-background.jpg

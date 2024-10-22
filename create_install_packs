@@ -8,6 +8,7 @@ os.chdir(cur_dir)
 
 files_list = [
     "eyeflow_conf.json",
+    "eyeflow-background.jpg",
     "compose.yaml",
     "run_flow.service",
     "run_flow.sh",
