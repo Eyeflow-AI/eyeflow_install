@@ -1,10 +1,25 @@
 echo "Edge installation started"
 
-apt update && apt upgrade -y
+apt update
+if [ $(dpkg-query -W -f='${Status}' libreoffice 2>/dev/null | grep -c "ok installed") -eq 1 ];
+then
+  apt purge -y thunderbird* libreoffice* remmina* rhythmbox* pulseaudio* aisleriot* cheese* gnome-mahjongg* gnome-mines* gnome-sudoku* gnome-todo* gnome-calendar* gnome-contacts* gnome-weather* gnome-maps* gnome-documents* gnome-photos* gnome-music*
+fi
+
+apt upgrade -y
+apt autoremove
+
+if [ $(dpkg-query -W -f='${Status}' nvidia-jetpack 2>/dev/null | grep -c "ok installed") -eq 0 ];
+then
+  apt install -y nvidia-jetpack
+fi
+
 if [ $(dpkg-query -W -f='${Status}' wget 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
   apt install -y curl wget
 fi
+
+/usr/sbin/nvpmodel -m 0
 
 if [ $(dpkg-query -W -f='${Status}' python3-pip 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
