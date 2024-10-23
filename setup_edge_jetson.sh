@@ -14,14 +14,9 @@ then
   apt install -y nvidia-jetpack
 fi
 
-if [ $(dpkg-query -W -f='${Status}' wget 2>/dev/null | grep -c "ok installed") -eq 0 ];
-then
-  apt install -y curl wget nano
-fi
-
 if [ $(dpkg-query -W -f='${Status}' nano 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-  apt install -y nano
+  apt install -y curl wget nano
 fi
 
 no | /usr/sbin/nvpmodel -m 0 2>/dev/null
@@ -104,8 +99,8 @@ then
   python3 /opt/eyeflow/install/request_license.py
 fi
 
-python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
 python3 /opt/eyeflow/install/cloud_sync.py
+python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
 
 echo "Edge installation finished"
 

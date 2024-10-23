@@ -136,8 +136,10 @@ fi
 
 if [ -f /opt/eyeflow/run/edge.license ];
 then
-  python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
   python3 /opt/eyeflow/install/cloud_sync.py
+  python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
 fi
 
 echo "Edge installation finished"
+
+# gsettings set org.gnome.desktop.background picture-uri file:///opt/eyeflow/install/eyeflow-background.jpg
