@@ -12,6 +12,7 @@ files_list = [
     "compose.yaml",
     "run_flow.service",
     "run_flow.sh",
+    "run_flow_monitor.sh",
     "install_run_flow_service.sh",
     "cloud_sync.py",
     "cloud_sync.service",
@@ -19,8 +20,10 @@ files_list = [
     "install_cloud_sync_service.sh",
     "request_license.py",
     "run_endpoint.sh",
-    "start_edge",
-    "stop_edge",
+    "start_service",
+    "stop_service",
+    "start_container",
+    "stop_container",
     "restart_edge",
     "upgrade_edge",
     "upload_extracts.py",
@@ -37,4 +40,4 @@ with tarfile.open(pack_name, "w:gz") as tar:
 
 os.chdir(wd)
 
-print("**install packs uploaded**")
+print("**install packs generated**")

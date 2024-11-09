@@ -1,6 +1,4 @@
 #!/bin/bash
-# cd /opt/eyeflow/install
-# docker compose down
 
 echo Stoping Edge service
 sudo systemctl stop run_flow.service

@@ -1,50 +1,64 @@
 echo "Edge installation started"
 
 apt update
-if [ $(dpkg-query -W -f='${Status}' rhythmbox 2>/dev/null | grep -c "ok installed") -eq 1 ];
-then
-  apt purge -y thunderbird* libreoffice* remmina* rhythmbox* aisleriot* gnome-mahjongg* gnome-mines* gnome-sudoku* gnome-todo* gnome-calendar* gnome-contacts* gnome-weather* gnome-maps* gnome-documents* gnome-photos* gnome-music*
-fi
-
-apt autoremove -y
 apt upgrade -y
 
-if [ $(dpkg-query -W -f='${Status}' nvidia-jetpack 2>/dev/null | grep -c "ok installed") -eq 0 ];
+# wget
+if [ $(dpkg-query -W -f='${Status}' wget 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-  apt install -y nvidia-jetpack
+  apt install -y curl wget
 fi
 
-if [ $(dpkg-query -W -f='${Status}' nano 2>/dev/null | grep -c "ok installed") -eq 0 ];
+# NVIDIA Driver
+if [ $(dpkg-query -W -f='${Status}' nvidia-driver-* 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-  apt install -y curl wget nano
+  echo "Please, install the NVIDIA driver first"
+  echo "On Ubuntu 22.04, you can install the NVIDIA driver with the following command:"
+  echo "sudo apt install -y nvidia-driver-550-server"
+  echo
+  echo "On Azure VM, you can install the NVIDIA driver with the following command:"
+  echo "sudo apt install -y ubuntu-drivers-common && ubuntu-drivers autoinstall"
+  echo
+  echo "After installing the NVIDIA driver and reboot, please run this script again"
+  exit 0
 fi
 
-no | /usr/sbin/nvpmodel -m 0 2>/dev/null
+# NVIDIA Container - online
+if [ ! -f /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list ];
+then
+  echo "Installing NVIDIA CuDA Toolkit"
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+  dpkg -i cuda-keyring_1.1-1_all.deb
+  apt update
+  apt-get install -y cuda-toolkit-12-4
+  apt-get install -y libcudnn libcudnn-dev
+fi
 
-if [ $(dpkg-query -W -f='${Status}' python3-pip 2>/dev/null | grep -c "ok installed") -eq 0 ];
+# install python
+if [ $(dpkg-query -W -f='${Status}' python3 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
   echo "Installing Python libs"
   apt-get install -y --no-install-recommends \
-      libhdf5-dev \
-      python3 \
-      python3-pip \
-      python3-dev \
-      python3-setuptools \
-      python3-libnvinfer
-
-  python3 -m pip install -U pip
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    python3 \
+    python3-pip \
+    python3-dev \
+    python3-setuptools
 fi
 
-# Eyeflow sdk
+# install python libs
 if ! python3 -c "import eyeflow_sdk" &> /dev/null;
 then
-  python3 -m pip install Cython
-  python3 -m pip install nvidia-pyindex
-  CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH CUDA_INC_DIR=/usr/local/cuda/include python3 -m pip install pycuda
+  python3 -m pip install -U eyeflow_sdk
+  python3 -m pip install eyeflow_sdk nvidia-pyindex
   python3 -m pip install \
-      onnx_graphsurgeon \
-      onnx \
-      eyeflow_sdk
+    onnx_graphsurgeon \
+    onnx \
+    tensorrt==10.0.1 \
+    tensorrt-cu12==10.0.1 \
+    opencv_python
 fi
 
 # Eyeflow folder & user
@@ -56,6 +70,7 @@ then
   echo "eyeflow:$PASS" | chpasswd
 
   usermod -a -G users eyeflow
+  usermod -a -G docker eyeflow
 fi
 
 if [ ! -d /opt/eyeflow ];
@@ -103,9 +118,10 @@ then
   python3 /opt/eyeflow/install/request_license.py
 fi
 
-python3 /opt/eyeflow/install/cloud_sync.py
-python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
+if [ -f /opt/eyeflow/run/edge.license ];
+then
+  python3 /opt/eyeflow/install/cloud_sync.py
+  python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
+fi
 
 echo "Edge installation finished"
-
-# rm /home/eyeflow/Desktop/nv*

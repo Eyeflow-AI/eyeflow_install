@@ -13,8 +13,8 @@ fi
 if [ $(dpkg-query -W -f='${Status}' nvidia-driver-* 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
   echo "Please, install the NVIDIA driver first"
-  echo "On Ubuntu 20.04, you can install the NVIDIA driver with the following command:"
-  echo "sudo apt install nvidia-driver-535-server"
+  echo "On Ubuntu 22.04, you can install the NVIDIA driver with the following command:"
+  echo "sudo apt install -y nvidia-driver-550-server"
   echo
   echo "On Azure VM, you can install the NVIDIA driver with the following command:"
   echo "sudo apt install -y ubuntu-drivers-common && ubuntu-drivers autoinstall"
@@ -85,6 +85,7 @@ fi
 if ! id -u "eyeflow" >/dev/null 2>&1;
 then
   echo 'Creating eyeflow user'
+  read -p 'Eyeflow user password: ' PASS
   adduser --quiet --disabled-password --shell /bin/bash --home /home/eyeflow --gecos "User" eyeflow
   echo "eyeflow:$PASS" | chpasswd
 
@@ -115,8 +116,6 @@ then
   tar -xzf /tmp/edge_install.tar.gz -C /opt/eyeflow/install
 
   cd /opt/eyeflow/install/
-  chmod +x stop_edge
-  chmod +x start_edge
   chmod +x cloud_sync.py
   chmod +x upload_extracts.py
 
@@ -125,12 +124,15 @@ then
 
   cp eyeflow_conf.json /opt/eyeflow/run/.
   mv run_flow.sh /opt/eyeflow/run/.
+  mv run_flow_monitor.sh /opt/eyeflow/run/.
   chmod +x /opt/eyeflow/run/run_flow.sh
 fi
 
 if [ ! -f /opt/eyeflow/run/edge.license ];
 then
   echo "Generating license"
+  read -p 'Environment: ' EDGE_ENVIRONMENT
+  read -p 'Device name: ' EDGE_DEVICE
   python3 /opt/eyeflow/install/request_license.py
 fi
 
