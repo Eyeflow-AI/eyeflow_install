@@ -52,7 +52,9 @@ def process_status(process_name):
 
 def install_pack(app_token, pack_info):
     try:
-        pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"])
+        arch = utils.get_device_arch()
+        os_version = utils.get_os_version()
+        pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"], arch=arch, os_version=os_version)
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
@@ -85,11 +87,13 @@ def upgrade_eyeflow_version(app_token):
     #     manifest = json.load(fp)
 
     manifest = get_edge_manifest()
+    arch = utils.get_device_arch()
+    os_version = utils.get_os_version()
 
     for pack in base_packs:
         pack_cloud_doc = None
         try:
-            pack_cloud_doc = utils.get_pack(app_token, {"name": pack["name"], "id": pack["id"]})
+            pack_cloud_doc = utils.get_pack(app_token, {"name": pack["name"], "id": pack["id"]}, arch=arch, os_version=os_version)
         except:
             pass
 
@@ -356,6 +360,13 @@ def upgrade_components(app_token, flow_data):
         if comp["component_id"] in components_checked:
             continue
 
+        if comp["options"]["process_type"] == "code_python":
+            arch = "*"
+            os_version = "*"
+        else:
+            arch = utils.get_device_arch()
+            os_version = utils.get_os_version()
+
         pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
         pack_local_doc = None
         if os.path.isfile(pack_file):
@@ -364,7 +375,7 @@ def upgrade_components(app_token, flow_data):
 
         try:
             pack_cloud_doc = None
-            pack_cloud_doc = utils.get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]})
+            pack_cloud_doc = utils.get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]}, arch=arch, os_version=os_version)
         except:
             pass
 
@@ -385,7 +396,9 @@ def upgrade_components(app_token, flow_data):
                 pack_doc, pack_filename = utils.download_pack(
                     app_token,
                     {"name": comp["component_name"], "id": comp["component_id"], "version": version},
-                    pack_folder=CONFIG["file-service"]["temp_folder"]
+                    pack_folder=CONFIG["file-service"]["temp_folder"],
+                    arch=arch,
+                    os_version=os_version
                 )
 
                 with open(pack_file, 'w') as fp:

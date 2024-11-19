@@ -39,10 +39,8 @@ def download_file(url, local_filename):
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 
-def download_pack(app_token, pack, pack_folder):
+def download_pack(app_token, pack, pack_folder, arch, os_version):
     try:
-        arch = get_device_arch()
-        os_version = get_os_version()
         log.info(f'Download pack {pack["name"]}-{arch}')
 
         folder_path = Path(pack_folder)
@@ -76,10 +74,8 @@ def download_pack(app_token, pack, pack_folder):
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 
-def get_pack(app_token, pack):
+def get_pack(app_token, pack, arch, os_version):
     try:
-        arch = get_device_arch()
-        os_version = get_os_version()
         # log.info(f'Get pack {pack["name"]}-{arch}')
 
         endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
