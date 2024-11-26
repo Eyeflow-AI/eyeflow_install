@@ -54,6 +54,7 @@ def install_pack(app_token, pack_info):
     try:
         arch = utils.get_device_arch()
         os_version = utils.get_os_version()
+        retcode = -1
         pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"], arch=arch, os_version=os_version)
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
@@ -290,7 +291,7 @@ def update_edge_manifest(component_doc):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def get_last_version(pack_doc):
+def get_last_version(app_token, pack_doc, upgrade_eyeflow):
     log.info(f"Get version for pack {pack_doc['pack_name']}-{pack_doc['pack_id']}")
 
     packs = get_edge_manifest()
@@ -298,24 +299,34 @@ def get_last_version(pack_doc):
     for pack_id in packs:
         pack_names[packs[pack_id]["info"]["name"]] = pack_id
 
-    if "dependencies" in pack_doc and check_dependencies(pack_doc["dependencies"], packs, pack_names):
-        return pack_doc["version"]
+    if "dependencies" in pack_doc:
+        dep_list =  check_dependencies(pack_doc["dependencies"], packs, pack_names)
+        if not dep_list:
+            return pack_doc["version"]
+        elif upgrade_eyeflow:
+            for dep in dep_list:
+                install_pack(app_token, {"name": dep["pack_name"], "id": dep["pack_id"], "version": dep["version"]})
+            return pack_doc["version"]
 
     if "version_list" in pack_doc:
         version_list = sorted(pack_doc["version_list"], key=lambda x: datetime.datetime.strptime(x["date"], "%Y-%m-%dT%H:%M:%S.%f%z"), reverse=True)
         for version in version_list:
-            if "dependencies" in version and check_dependencies(version["dependencies"], packs, pack_names):
-                return version["version"]
+            if "dependencies" in version:
+                dep_list = check_dependencies(version["dependencies"], packs, pack_names)
+                if not dep_list:
+                    return version["version"]
 
     return None
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
 def check_dependencies(dependencies, packs, pack_names):
+    dep_list = []
     for dep in dependencies:
         if dep not in pack_names:
             log.info(f"Invalid dependency for pack: {dep}")
-            return False
+            dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
+            continue
 
         dep_ver_min = dependencies[dep]["min"].split(".")
         dep_ver_max = dependencies[dep]["max"].split(".")
@@ -335,18 +346,20 @@ def check_dependencies(dependencies, packs, pack_names):
             if level < len(dep_ver_min) and dep_ver_min[level] != "*":
                 if int(pack_version[level]) < int(dep_ver_min[level]):
                     log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} < Dep-ver Min: {dep_ver_min}")
-                    return False
+                    dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
+                    break
 
             if level < len(dep_ver_max) and dep_ver_max[level] != "*":
                 if int(pack_version[level]) > int(dep_ver_max[level]):
                     log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} > Dep-ver Max: {dep_ver_max}")
-                    return False
+                    dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
+                    break
 
-    return True
+    return dep_list
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def upgrade_components(app_token, flow_data):
+def upgrade_components(app_token, flow_data, upgrade_eyeflow):
     """
     Update components for processing flow
     """
@@ -382,7 +395,7 @@ def upgrade_components(app_token, flow_data):
         components_checked.append(comp["component_id"])
 
         if pack_cloud_doc is not None:
-            version = get_last_version(pack_cloud_doc)
+            version = get_last_version(app_token, pack_cloud_doc, upgrade_eyeflow)
             if not version:
                 log.warning(f"Fail getting dependencies for component {comp['component_name']}-{comp['component_id']}")
                 continue
@@ -421,7 +434,7 @@ def parse_args(args):
     """ Parse the arguments.
     """
     parser = argparse.ArgumentParser(description='Upgrade Edge and Components files.')
-    parser.add_argument('--upgrade_eyeflow', help='Check Edge version.', action='store_true')
+    parser.add_argument('--upgrade_eyeflow', '-u', help='Check Edge version.', action='store_true')
 
     return parser.parse_args(args)
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -452,7 +465,7 @@ def main(args=None):
 
     try:
         flow_data = get_flow_data(app_token)
-        upgrade_components(app_token, flow_data)
+        upgrade_components(app_token, flow_data, args.upgrade_eyeflow)
 
     except Exception as expt:
         log.error(f'Fail updating edge data {expt}')
