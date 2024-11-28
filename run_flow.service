@@ -3,6 +3,7 @@ Description=Start EyeflowEdge
 After=network.target
 
 [Service]
+WorkingDirectory=/opt/eyeflow/run
 Type=simple
 Restart=always
 RestartSec=10
