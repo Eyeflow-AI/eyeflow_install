@@ -239,29 +239,37 @@ def update_models(app_token, flow_data):
     """
 
     # log.info(f"Update models for flow")
-
     datasets_downloaded = []
+    def downmodel(dataset_id):
+        if dataset_id in datasets_downloaded or len(dataset_id) != 24:
+            return
+
+        model_file = os.path.join(model_folder, dataset_id + ".onnx")
+        info_file = os.path.join(model_folder, dataset_id + ".json")
+        if os.path.isfile(info_file) and not os.path.isfile(model_file):
+            os.remove(info_file)
+
+        model_doc = get_model(app_token, dataset_id, model_folder=model_folder, model_type="onnx")
+        datasets_downloaded.append(dataset_id)
+        if "model_list" in model_doc and len(model_doc["model_list"]) == 0:
+            log.warning(f"Empty model for dataset {dataset_id}")
+            return
+
+        if not os.path.isfile(model_file):
+            raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
+
+
+    model_folder = CONFIG["file-service"]["model"]
+    if not os.path.isdir(model_folder):
+        os.makedirs(model_folder, exist_ok=True)
+
     for comp in flow_data["nodes"]:
         if "dataset_id" in comp["options"]:
-            dataset_id = comp["options"]["dataset_id"]
-            if dataset_id not in datasets_downloaded:
-                datasets_downloaded.append(dataset_id)
-                model_folder = CONFIG["file-service"]["model"]
-                if not os.path.isdir(model_folder):
-                    os.makedirs(model_folder, exist_ok=True)
+            downmodel(comp["options"]["dataset_id"])
 
-                model_file = os.path.join(model_folder, dataset_id + ".onnx")
-                info_file = os.path.join(model_folder, dataset_id + ".json")
-                if os.path.isfile(info_file) and not os.path.isfile(model_file):
-                    os.remove(info_file)
-
-                model_doc = get_model(app_token, dataset_id, model_folder=model_folder, model_type="onnx")
-                if "model_list" in model_doc and len(model_doc["model_list"]) == 0:
-                    log.warning(f"Empty model for dataset {dataset_id}")
-                    continue
-
-                if not os.path.isfile(model_file):
-                    raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
+        if "classification_dataset_ids" in comp["options"]:
+            for output in comp["options"]["classification_dataset_ids"]:
+                downmodel(comp["options"]["classification_dataset_ids"][output])
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -269,31 +277,41 @@ def upload_flow_extracts(app_token, flow_data, max_examples=400):
     """
     Upload extracts to datasets after processing video
     """
+    datasets_uploaded = []
+
+    def upextract(dataset_id):
+        if dataset_id in datasets_uploaded or len(dataset_id) != 24:
+            return
+
+        extract_path = os.path.join(CONFIG["file-service"]["extract"], dataset_id)
+        files_uploaded = os.listdir(extract_path)
+        if not edge_client.upload_extract(
+            app_token,
+            dataset_id,
+            extract_folder=CONFIG["file-service"]["extract"],
+            max_files=max_examples,
+            thumb_size=128
+        ):
+            log.error(f'Fail uploading extract {dataset_id}')
+
+        log.info("Deleting files from: " + extract_path)
+        for filename in files_uploaded:
+            try:
+                os.remove(os.path.join(extract_path, filename))
+            except:
+                pass
+
+        datasets_uploaded.append(dataset_id)
 
     log.info(f"Upload extracts for flow")
 
-    datasets_uploaded = []
     for comp in flow_data["nodes"]:
         if "dataset_id" in comp["options"] and comp["options"]["dataset_id"] not in datasets_uploaded:
-            dataset_id = comp["options"]["dataset_id"]
-            datasets_uploaded.append(dataset_id)
-            extract_path = os.path.join(CONFIG["file-service"]["extract"], dataset_id)
-            files_uploaded = os.listdir(extract_path)
-            if not edge_client.upload_extract(
-                app_token,
-                dataset_id,
-                extract_folder=CONFIG["file-service"]["extract"],
-                max_files=max_examples,
-                thumb_size=128
-            ):
-                log.error(f'Fail uploading extract {dataset_id}')
+            upextract(comp["options"]["dataset_id"])
 
-            log.info("Deleting files from: " + extract_path)
-            for filename in files_uploaded:
-                try:
-                    os.remove(os.path.join(extract_path, filename))
-                except:
-                    pass
+        if "classification_dataset_ids" in comp["options"]:
+            for output in comp["options"]["classification_dataset_ids"]:
+                upextract(comp["options"]["classification_dataset_ids"][output])
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
