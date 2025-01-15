@@ -31,7 +31,7 @@ then
   dpkg -i cuda-keyring_1.1-1_all.deb
   apt update
   apt-get install -y cuda-toolkit-12-4
-  apt-get install -y libcudnn libcudnn-dev
+  apt-get install -y libcudnn8 libcudnn8-dev
 fi
 
 # install python
