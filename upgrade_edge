@@ -373,7 +373,7 @@ def upgrade_components(app_token, flow_data, upgrade_eyeflow):
         if comp["component_id"] in components_checked:
             continue
 
-        if comp["options"]["process_type"] == "code_python":
+        if comp["options"]["process_type"].startswith("code_python"):
             arch = "*"
             os_version = "*"
         else:
