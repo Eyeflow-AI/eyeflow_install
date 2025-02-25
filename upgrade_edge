@@ -336,7 +336,7 @@ def check_dependencies(dependencies, packs, pack_names):
             dep_ver_max = ['1', '*']
 
         if dep == "edge_sdk_libs" and dep_ver_max[0] == "2":
-            dep_ver_max = ['24', '*']
+            dep_ver_max = ['25', '*']
 
         if dep == "eyeflow_edge" and dependencies[dep]["max"] == "0.9.63":
             dep_ver_max = ['0', '9', '*']
