@@ -18,5 +18,6 @@
     },
     "flow_folder": "/opt/eyeflow/data/flow",
     "ws": "https://app.eyeflow.ai",
-    "proxies": {}
+    "proxies": {},
+    "default_trt_model_precision": "fp16"
 }

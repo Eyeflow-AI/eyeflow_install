@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import argparse
+
+from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+
+from eyeflow_sdk.log_obj import log, CONFIG
+
+proxies = {}
+if "proxies" in CONFIG:
+    proxies = CONFIG["proxies"]
+# ---------------------------------------------------------------------------------------------------------------------
+
+def parse_args(args):
+    """ Parse the arguments.
+    """
+    parser = argparse.ArgumentParser(description='Download file from misc storage')
+    parser.add_argument('storage_filename', help='The name of storage file to download', type=str)
+    parser.add_argument('--local_file', help='The path of local file to save', type=str)
+
+    return parser.parse_args(args)
+#----------------------------------------------------------------------------------------------------------------------------------
+
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+
+    args = parse_args(args)
+    if not args.local_file:
+        args.local_file = os.path.join(os.getcwd(), os.path.basename(args.storage_filename))
+
+    if os.path.exists(args.local_file):
+        log.error(f"File {args.local_file} already exist.")
+        return
+
+    if "storage_credentials" not in CONFIG:
+        log.error("Storage credentials not found in the configuration.")
+        return
+
+    blob_client = BlobServiceClient(
+        account_url=CONFIG["storage_credentials"]["account_url"],
+        credential=CONFIG["storage_credentials"]["account_key"],
+        proxies=proxies
+    )
+
+    blob_name = os.path.basename(args.storage_filename)
+    blob_client = blob_client.get_blob_client(container='misc', blob=blob_name)
+    download_stream = blob_client.download_blob()
+    data = download_stream.readall()
+
+    with open(args.local_file, 'wb') as file:
+        file.write(data)
+
+    log.info(f"File {args.storage_filename} downloaded successfully.")
+#----------------------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    try:
+        main()
+    except ResourceExistsError as e:
+        log.error(f"Resource already exists: {e}")
+    except ResourceNotFoundError as e:
+        log.error(f"Resource not found: {e}")
+    except Exception as e:
+        log.error(f"An error occurred: {e}")
