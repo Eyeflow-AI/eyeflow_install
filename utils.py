@@ -240,7 +240,7 @@ def update_models(app_token, flow_data):
 
     # log.info(f"Update models for flow")
     datasets_downloaded = []
-    def downmodel(dataset_id):
+    def down_model(dataset_id):
         if dataset_id in datasets_downloaded or len(dataset_id) != 24:
             return
 
@@ -251,12 +251,17 @@ def update_models(app_token, flow_data):
 
         model_doc = get_model(app_token, dataset_id, model_folder=model_folder, model_type="onnx")
         datasets_downloaded.append(dataset_id)
+
         if "model_list" in model_doc and len(model_doc["model_list"]) == 0:
             log.warning(f"Empty model for dataset {dataset_id}")
             return
 
         if not os.path.isfile(model_file):
             raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
+
+        trt_file = os.path.join(model_folder, dataset_id + ".trt")
+        if os.path.isfile(trt_file):
+            os.remove(trt_file)
 
 
     model_folder = CONFIG["file-service"]["model"]
@@ -265,11 +270,11 @@ def update_models(app_token, flow_data):
 
     for comp in flow_data["nodes"]:
         if "dataset_id" in comp["options"]:
-            downmodel(comp["options"]["dataset_id"])
+            down_model(comp["options"]["dataset_id"])
 
         if "classification_dataset_ids" in comp["options"]:
             for output in comp["options"]["classification_dataset_ids"]:
-                downmodel(comp["options"]["classification_dataset_ids"][output])
+                down_model(comp["options"]["classification_dataset_ids"][output])
 #----------------------------------------------------------------------------------------------------------------------------------
 
 

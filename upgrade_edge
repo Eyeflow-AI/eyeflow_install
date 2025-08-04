@@ -56,12 +56,17 @@ def install_pack(app_token, pack_info):
         os_version = utils.get_os_version()
         retcode = -1
         pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"], arch=arch, os_version=os_version)
+        if pack_doc is None or pack_filename is None:
+            log.error(f"Fail installing pack {pack_info['name']} - {pack_info['version']}")
+            return
+
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
     except:
         pass
 
     if retcode != 0:
-        raise Exception(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
+        log.error(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
+        exit(1)
 
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     if not os.path.isfile(manifest_filename):
@@ -122,7 +127,8 @@ def get_flow_data(app_token):
     if not edge_data:
         log.warning("Fail getting edge_data from cloud")
         if not os.path.isfile(edge_data_filename):
-            raise Exception("Fail getting edge_data from local backup")
+            log.error("Fail getting edge_data from local backup")
+            exit(1)
 
         with open(edge_data_filename, 'r') as fp:
             edge_data = json.load(fp)
@@ -138,7 +144,8 @@ def get_flow_data(app_token):
             flow_id = edge_data["edge_data"]["flow_id"]
             flow_data = edge_client.get_flow(app_token, flow_id)
         else:
-            raise Exception(f"Fail getting flow from edge_data.")
+            log.error(f"Fail getting flow from edge_data.")
+            exit(1)
 
     elif "endpoint_data" in edge_data:
         log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
@@ -151,10 +158,12 @@ def get_flow_data(app_token):
         flow_data = edge_client.get_flow(app_token, flow_id)
 
     else:
-        raise Exception(f"Fail getting flow from edge_data.")
+        log.error(f"Fail getting flow from edge_data.")
+        exit(1)
 
     if not flow_data:
-        raise Exception(f"Fail getting flow from local backup. Need to connect to cloud.")
+        log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
+        exit(1)
 
     return flow_data
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -162,6 +171,10 @@ def get_flow_data(app_token):
 
 def create_edge_manifest(app_token):
     man_edge_filename = os.path.join(CONFIG["file-service"]["run_folder"], "manifest.json")
+    if (not os.path.isfile(man_edge_filename)):
+        log.error(f"Could not find file: {man_edge_filename} - Need to install eyeflow_edge first")
+        exit(1)
+
     with open(man_edge_filename, 'r') as fp:
         eyeflow_edge_doc = json.load(fp)
 
@@ -186,8 +199,7 @@ def create_edge_manifest(app_token):
             },
             "dependencies": []
         }
-
-    if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so")):
+    elif os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so")):
         packs["65a987e1e90f2032a3886890"] = {
             "info": {
                 "name": "edge_sdk_libs",
@@ -205,23 +217,15 @@ def create_edge_manifest(app_token):
 
         pack_file = os.path.join(component_folder, comp["component_id"] + ".json")
         if not os.path.isfile(pack_file):
-            log.warning(f"Fail getting component {comp['component_name']}-{comp['component_id']}")
+            log.warning(f"Fail reading component {comp['component_name']}-{comp['component_id']}")
             continue
 
         with open(pack_file) as fp:
             component_doc = json.load(fp)
 
         if "dependencies" not in component_doc:
-            component_doc["dependencies"] = {
-                "eyeflow_edge": {
-                    "min": "0.9.63",
-                    "max": "0.9.*"
-                },
-                "edge_sdk_libs": {
-                    "min": "1.0.0",
-                    "max": "1.*"
-                }
-            }
+            log.error(f"Component has not 'dependencies': {component_doc['pack_name']}")
+            continue
 
         for dep in component_doc["dependencies"]:
             if dep == "edge_sdk_libs" and component_doc["dependencies"][dep]["min"] == "24.01.28":
@@ -247,6 +251,9 @@ def create_edge_manifest(app_token):
 
 def get_edge_manifest():
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    if (not os.path.isfile(manifest_filename)):
+        log.error(f"Could not find the manifest file: {manifest_filename}. Need to generate first")
+        exit(1)
 
     with open(manifest_filename, 'r') as fp:
         packs = json.load(fp)
@@ -258,16 +265,8 @@ def get_edge_manifest():
 def update_edge_manifest(component_doc):
     packs = get_edge_manifest()
     if "dependencies" not in component_doc:
-        component_doc["dependencies"] = {
-            "eyeflow_edge": {
-                "min": "0.9.63",
-                "max": "0.9.*"
-            },
-            "edge_sdk_libs": {
-                "min": "1.0.0",
-                "max": "1.*"
-            }
-        }
+        log.error(f"Component has not 'dependencies': {component_doc['pack_name']}")
+        exit(1)
 
     for dep in component_doc["dependencies"]:
         if dep == "edge_sdk_libs" and component_doc["dependencies"][dep]["min"] == "24.01.28":
@@ -300,8 +299,8 @@ def get_last_version(app_token, pack_doc, upgrade_eyeflow):
         pack_names[packs[pack_id]["info"]["name"]] = pack_id
 
     if "dependencies" in pack_doc:
-        dep_list =  check_dependencies(pack_doc["dependencies"], packs, pack_names)
-        if not dep_list:
+        dep_list = check_dependencies(pack_doc["dependencies"], packs, pack_names)
+        if not dep_list or len(dep_list) == 0:
             return pack_doc["version"]
         elif upgrade_eyeflow:
             for dep in dep_list:
@@ -316,6 +315,8 @@ def get_last_version(app_token, pack_doc, upgrade_eyeflow):
                 if not dep_list:
                     return version["version"]
 
+    log.info(f"Invalid dependency for pack: {pack_doc['dependencies']}")
+
     return None
 #----------------------------------------------------------------------------------------------------------------------------------
 
@@ -325,35 +326,55 @@ def check_dependencies(dependencies, packs, pack_names):
     for dep in dependencies:
         if dep not in pack_names:
             log.info(f"Invalid dependency for pack: {dep}")
-            dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
+            dep_list.append({
+                "pack_name": dep,
+                "pack_id": dependencies[dep]["pack_id"] if "pack_id" in dependencies[dep] else "",
+                "version": dependencies[dep]["min"]}
+            )
             continue
 
         dep_ver_min = dependencies[dep]["min"].split(".")
         dep_ver_max = dependencies[dep]["max"].split(".")
 
-        if dep == "edge_sdk_libs" and dependencies[dep]["min"] == "24.01.28":
-            dep_ver_min = ['1', '0', '0']
-            dep_ver_max = ['1', '*']
-
-        if dep == "edge_sdk_libs" and dep_ver_max[0] == "2":
-            dep_ver_max = ['25', '*']
-
-        if dep == "eyeflow_edge" and dependencies[dep]["max"] == "0.9.63":
-            dep_ver_max = ['0', '9', '*']
+        if dep == "edge_sdk_libs" and dep_ver_min[0] == '2':
+            dep_ver_min[0] = '24'
+            dep_ver_min[1] = '*'
+            dep_ver_max[0] = '25'
+            dep_ver_max[1] = '*'
 
         pack_version = packs[pack_names[dep]]["info"]["version"].split(".")
+        pack_ver_int = 0
+        dep_ver_min_int = 0
+        dep_ver_max_int = 0
         for level in range(3):
-            if level < len(dep_ver_min) and dep_ver_min[level] != "*":
-                if int(pack_version[level]) < int(dep_ver_min[level]):
-                    log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} < Dep-ver Min: {dep_ver_min}")
-                    dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
-                    break
+            if level >= len(dep_ver_min):
+                dep_ver_min_int *= 1000
+            elif dep_ver_min[level] == "*":
+                dep_ver_min_int *= 1000
+            else:
+                dep_ver_min_int = (dep_ver_min_int * 1000) + int(dep_ver_min[level])
 
-            if level < len(dep_ver_max) and dep_ver_max[level] != "*":
-                if int(pack_version[level]) > int(dep_ver_max[level]):
-                    log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {pack_version} > Dep-ver Max: {dep_ver_max}")
-                    dep_list.append({"pack_name": dep, "pack_id": dependencies[dep]["pack_id"], "version": dependencies[dep]["min"]})
-                    break
+            if level >= len(dep_ver_max):
+                dep_ver_max_int = (dep_ver_max_int * 1000) + 999
+            elif dep_ver_max[level] == "*":
+                dep_ver_max_int = (dep_ver_max_int * 1000) + 999
+            else:
+                dep_ver_max_int = (dep_ver_max_int * 1000) + int(dep_ver_max[level])
+
+            if level >= len(pack_version):
+                pack_ver_int *= 1000
+            else:
+                pack_ver_int = (pack_ver_int * 1000) + int(pack_version[level])
+
+        # log.info(f"DepVer Min: {dep_ver_min}-{dep_ver_min_int} - DepVer Max: {dep_ver_max}-{dep_ver_max_int} - PackVer: {pack_version}-{pack_ver_int}")
+        if pack_ver_int < dep_ver_min_int or pack_ver_int > dep_ver_max_int:
+            # log.info(f"Invalid dependency for pack: {dep} - Pack-ver: {packs[pack_names[dep]]['info']['version']} != [Dep-ver Min: {dependencies[dep]['min']} - Max: {dependencies[dep]['max']}]")
+            dep_list.append({
+                "pack_name": dep,
+                "pack_id": dependencies[dep]["pack_id"] if "pack_id" in dependencies[dep] else "",
+                "version": dependencies[dep]["min"]}
+            )
+            break
 
     return dep_list
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -404,7 +425,7 @@ def upgrade_components(app_token, flow_data, upgrade_eyeflow):
                 (pack_local_doc is not None and
                  datetime.datetime.strptime(pack_cloud_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z") > datetime.datetime.strptime(pack_local_doc["filedate"], "%Y-%m-%dT%H:%M:%S.%f%z"))
             ):
-                log.info(f'Updating component: {comp["component_name"]} - {comp["component_id"]} - version: {pack_cloud_doc["version"]}')
+                log.info(f'Updating component: {comp["component_name"]} - {comp["component_id"]} - version: {version}')
 
                 pack_doc, pack_filename = utils.download_pack(
                     app_token,
@@ -424,9 +445,39 @@ def upgrade_components(app_token, flow_data, upgrade_eyeflow):
                 update_edge_manifest(pack_doc)
 
         elif pack_cloud_doc is None and pack_local_doc is None:
-            raise Exception(f'Fail getting component {comp["component_name"]}-{comp["component_id"]}')
+            log.error(f'Fail getting component {comp["component_name"]}-{comp["component_id"]}')
 
         components_checked.append(comp["component_id"])
+#----------------------------------------------------------------------------------------------------------------------------------
+
+
+def download_component(comp, version="latest"):
+    # pack_cloud_doc = utils.get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]}, arch=arch, os_version=os_version)
+
+    app_info, app_token = utils.get_license()
+
+    if comp["process_type"].startswith("code_python"):
+        arch = "*"
+        os_version = "*"
+    else:
+        arch = utils.get_device_arch()
+        os_version = utils.get_os_version()
+
+    pack_doc, pack_filename = utils.download_pack(
+        app_token,
+        {"name": comp["component_name"], "id": comp["component_id"], "version": version},
+        pack_folder=CONFIG["file-service"]["temp_folder"],
+        arch=arch,
+        os_version=os_version
+    )
+
+    if pack_filename is None or not os.path.exists(pack_filename):
+        log.error(f"Fail getting component: " + comp["component_name"])
+        return
+
+    component_dest = os.path.join(CONFIG["file-service"]["components"], comp["component_id"])
+    with tarfile.open(pack_filename, 'r') as tar:
+        tar.extractall(component_dest)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -475,3 +526,6 @@ def main(args=None):
 
 main()
 # main(["--upgrade_eyeflow"])
+# download_component({"component_name": "mb_inspect_result", "component_id": "685029cfc6706753208bb654", "process_type": "code_python"})
+# download_component({"component_name": "mb_checklist", "component_id": "68502aacc6706753208bb655", "process_type": "code_python"})
+# download_component({"component_name": "get_part_data", "component_id": "67df0f9fbb8139c32f2fcaba", "process_type": "code_python"})
