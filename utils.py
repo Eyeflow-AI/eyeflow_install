@@ -205,6 +205,10 @@ def get_model(app_token, dataset_id, model_folder, model_type="tensorflow"):
             with tarfile.open(dest_filename, 'r') as tar:
                 tar.extractall(folder_path)
 
+            trt_file = os.path.join(model_folder, dataset_id + ".trt")
+            if os.path.isfile(trt_file):
+                os.remove(trt_file)
+
             os.remove(dest_filename)
 
         if os.path.isfile(local_cache):
@@ -258,10 +262,6 @@ def update_models(app_token, flow_data):
 
         if not os.path.isfile(model_file):
             raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
-
-        trt_file = os.path.join(model_folder, dataset_id + ".trt")
-        if os.path.isfile(trt_file):
-            os.remove(trt_file)
 
 
     model_folder = CONFIG["file-service"]["model"]
