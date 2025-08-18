@@ -58,21 +58,22 @@ def install_pack(app_token, pack_info):
         pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"], arch=arch, os_version=os_version)
         if pack_doc is None or pack_filename is None:
             log.error(f"Fail installing pack {pack_info['name']} - {pack_info['version']}")
-            return
+            return False
 
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
+        if retcode != 0:
+            log.error(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
+            return False
+
+        manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+        if not os.path.isfile(manifest_filename):
+            create_edge_manifest(app_token)
+        else:
+            update_edge_manifest(pack_doc)
     except:
-        pass
+        return False
 
-    if retcode != 0:
-        log.error(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
-        exit(1)
-
-    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
-    if not os.path.isfile(manifest_filename):
-        create_edge_manifest(app_token)
-    else:
-        update_edge_manifest(pack_doc)
+    return True
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -128,7 +129,7 @@ def get_flow_data(app_token):
         log.warning("Fail getting edge_data from cloud")
         if not os.path.isfile(edge_data_filename):
             log.error("Fail getting edge_data from local backup")
-            exit(1)
+            sys.exit(1)
 
         with open(edge_data_filename, 'r') as fp:
             edge_data = json.load(fp)
@@ -145,7 +146,7 @@ def get_flow_data(app_token):
             flow_data = edge_client.get_flow(app_token, flow_id)
         else:
             log.error(f"Fail getting flow from edge_data.")
-            exit(1)
+            sys.exit(1)
 
     elif "endpoint_data" in edge_data:
         log.info(f'Endpoint: {edge_data["endpoint_data"]["_id"]}')
@@ -159,11 +160,11 @@ def get_flow_data(app_token):
 
     else:
         log.error(f"Fail getting flow from edge_data.")
-        exit(1)
+        sys.exit(1)
 
     if not flow_data:
         log.error(f"Fail getting flow from local backup. Need to connect to cloud.")
-        exit(1)
+        sys.exit(1)
 
     return flow_data
 #----------------------------------------------------------------------------------------------------------------------------------
@@ -173,7 +174,7 @@ def create_edge_manifest(app_token):
     man_edge_filename = os.path.join(CONFIG["file-service"]["run_folder"], "manifest.json")
     if (not os.path.isfile(man_edge_filename)):
         log.error(f"Could not find file: {man_edge_filename} - Need to install eyeflow_edge first")
-        exit(1)
+        sys.exit(1)
 
     with open(man_edge_filename, 'r') as fp:
         eyeflow_edge_doc = json.load(fp)
@@ -253,7 +254,7 @@ def get_edge_manifest():
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     if (not os.path.isfile(manifest_filename)):
         log.error(f"Could not find the manifest file: {manifest_filename}. Need to generate first")
-        exit(1)
+        sys.exit(1)
 
     with open(manifest_filename, 'r') as fp:
         packs = json.load(fp)
@@ -266,7 +267,7 @@ def update_edge_manifest(component_doc):
     packs = get_edge_manifest()
     if "dependencies" not in component_doc:
         log.error(f"Component has not 'dependencies': {component_doc['pack_name']}")
-        exit(1)
+        component_doc["dependencies"] = {}
 
     for dep in component_doc["dependencies"]:
         if dep == "edge_sdk_libs" and component_doc["dependencies"][dep]["min"] == "24.01.28":
@@ -304,7 +305,11 @@ def get_last_version(app_token, pack_doc, upgrade_eyeflow):
             return pack_doc["version"]
         elif upgrade_eyeflow:
             for dep in dep_list:
-                install_pack(app_token, {"name": dep["pack_name"], "id": dep["pack_id"], "version": dep["version"]})
+                ret = install_pack(app_token, {"name": dep["pack_name"], "id": dep["pack_id"], "version": dep["version"]})
+                if not ret:
+                    log.error(f"Fail installing dependency {dep['pack_name']} - {dep['version']}")
+                    sys.exit(1)
+
             return pack_doc["version"]
 
     if "version_list" in pack_doc:
@@ -521,7 +526,7 @@ def main(args=None):
     except Exception as expt:
         log.error(f'Fail updating edge data {expt}')
         log.error(traceback.format_exc())
-        exit(1)
+        sys.exit(1)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 main()
