@@ -191,10 +191,25 @@ def create_edge_manifest(app_token):
     }
 
     lib_folder = os.path.join(CONFIG["file-service"]["run_folder"], "../lib")
-    if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.2")):
+    if os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.4")):
+        ver_files = [filename for filename in os.listdir(lib_folder) if filename.startswith("libedge_sdk.so.4.")]
+        ver_files = sorted(ver_files, reverse=True)
+        if len(ver_files) > 0:
+            version = ver_files[-1][len("libedge_sdk.so."):]
+        else:
+            version = "4.0.0"
         packs["65a987e1e90f2032a3886890"] = {
             "info": {
-                "name": "edge_sdk_libs",
+                "name": "libedge_sdk",
+                "version": version,
+                "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.2")))
+            },
+            "dependencies": []
+        }
+    elif os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so.2")):
+        packs["65a987e1e90f2032a3886890"] = {
+            "info": {
+                "name": "libedge_sdk",
                 "version": "2.0.0",
                 "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.2")))
             },
@@ -203,7 +218,7 @@ def create_edge_manifest(app_token):
     elif os.path.isfile(os.path.join(lib_folder, "libedge_sdk.so")):
         packs["65a987e1e90f2032a3886890"] = {
             "info": {
-                "name": "edge_sdk_libs",
+                "name": "libedge_sdk",
                 "version": "1.0.0",
                 "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so")))
             },
@@ -246,7 +261,7 @@ def create_edge_manifest(app_token):
 
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     with open(manifest_filename, 'w') as fp:
-        json.dump(packs, fp, default=str)
+        json.dump(packs, fp, default=str, indent=2)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -287,7 +302,7 @@ def update_edge_manifest(component_doc):
 
     manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
     with open(manifest_filename, 'w') as fp:
-        json.dump(packs, fp, default=str)
+        json.dump(packs, fp, default=str, indent=2)
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -415,7 +430,8 @@ def upgrade_components(app_token, flow_data, upgrade_eyeflow):
         try:
             pack_cloud_doc = None
             pack_cloud_doc = utils.get_pack(app_token, {"name": comp["component_name"], "id": comp["component_id"]}, arch=arch, os_version=os_version)
-        except:
+        except Exception as excp:
+            log.warning(f"Fail getting component {comp['component_name']}-{comp['component_id']}: {excp}")
             pass
 
         components_checked.append(comp["component_id"])
