@@ -202,7 +202,7 @@ def create_edge_manifest(app_token):
             "info": {
                 "name": "libedge_sdk",
                 "version": version,
-                "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.2")))
+                "date": datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(lib_folder, "libedge_sdk.so.4")))
             },
             "dependencies": []
         }
