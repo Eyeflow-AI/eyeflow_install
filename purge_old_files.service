@@ -1,0 +1,9 @@
+[Unit]
+Description=Purge old image and video files
+
+[Service]
+Type=simple
+ExecStart=bash /opt/eyeflow/src/purge_old_files.sh
+
+[Install]
+WantedBy=multi-user.target

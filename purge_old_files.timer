@@ -1,0 +1,10 @@
+[Unit]
+Description=Purge old image and video files
+
+[Timer]
+OnCalendar=*-*-* 2:00:00
+Persistent=true
+Unit=purge_old_files.service
+
+[Install]
+WantedBy=timers.target
