@@ -40,7 +40,8 @@ if ! python3 -c "import eyeflow_sdk" &> /dev/null;
 then
   python3 -m pip install Cython
   python3 -m pip install nvidia-pyindex
-  CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH CUDA_INC_DIR=/usr/local/cuda/include python3 -m pip install pycuda
+  CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH CUDA_INC_DIR=/usr/local/cuda/include
+  python3 -m pip install pycuda
   python3 -m pip install \
       onnx_graphsurgeon \
       onnx \
@@ -56,6 +57,7 @@ then
   echo "eyeflow:$PASS" | chpasswd
 
   usermod -a -G users eyeflow
+  usermod -a -G sudo eyeflow
 fi
 
 if [ ! -d /opt/eyeflow ];
@@ -84,8 +86,8 @@ then
   chmod +x cloud_sync.py
   chmod +x upload_extracts.py
 
-  echo "Installing services"
-  sh install_cloud_sync_service.sh
+  # echo "Installing services"
+  # sh install_cloud_sync_service.sh
 
   cp eyeflow_conf.json /opt/eyeflow/run/.
   mv run_flow.sh /opt/eyeflow/run/.
