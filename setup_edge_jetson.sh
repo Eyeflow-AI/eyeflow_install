@@ -86,9 +86,6 @@ then
   chmod +x cloud_sync.py
   chmod +x upload_extracts.py
 
-  # echo "Installing services"
-  # sh install_cloud_sync_service.sh
-
   cp eyeflow_conf.json /opt/eyeflow/run/.
   mv run_flow.sh /opt/eyeflow/run/.
   mv run_flow_monitor.sh /opt/eyeflow/run/.
@@ -97,17 +94,4 @@ then
   gsettings set org.gnome.desktop.background picture-uri file:///opt/eyeflow/install/eyeflow-background.jpg
 fi
 
-if [ ! -f /opt/eyeflow/run/edge.license ];
-then
-  echo "Generating license"
-  read -p 'Environment: ' EDGE_ENVIRONMENT
-  read -p 'Device name: ' EDGE_DEVICE
-  python3 /opt/eyeflow/install/request_license.py
-fi
-
-python3 /opt/eyeflow/install/cloud_sync.py
-python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow
-
 echo "Edge installation finished"
-
-# rm /home/eyeflow/Desktop/nv*
