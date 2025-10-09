@@ -21,17 +21,17 @@ Edge x86 execução em container:
 Edge Jetson:
  - ```curl -sL https://github.com/Eyeflow-AI/eyeflow_install/releases/latest/download/setup_edge_jetson.sh | sudo bash```
 
-## Pos Instalação
+## Pós Instalação
 Após a instalação, é necessário criar o device no Eyeflow.App para emissão da licença e associar um flow.
 
 Instale a licença no device, informando o nome do Ambiente e do Device
- - ```python3 /opt/eyeflow/install/request_license.py```
+ - ```sudo python3 /opt/eyeflow/install/request_license.py```
 
 Baixe o flow e os modelos para o device
- - ```python3 /opt/eyeflow/install/cloud_sync.py```
+ - ```sudo python3 /opt/eyeflow/install/cloud_sync.py```
 
 Instale o eyeflow_edge e componentes
- - ```python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow```
+ - ```sudo python3 /opt/eyeflow/install/upgrade_edge --upgrade_eyeflow```
 
 ### Configuração da Edge Container:
 Para que o edge possa acessar as câmeras são necessárias configurações específicas mapeando a rede ou as USBs do host para o container.
