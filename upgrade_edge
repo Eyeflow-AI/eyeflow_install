@@ -51,27 +51,29 @@ def process_status(process_name):
 
 
 def install_pack(app_token, pack_info):
+    retcode = -1
+    pack_doc = None
     try:
         arch = utils.get_device_arch()
         os_version = utils.get_os_version()
-        retcode = -1
         pack_doc, pack_filename = utils.download_pack(app_token, pack_info, pack_folder=CONFIG["file-service"]["temp_folder"], arch=arch, os_version=os_version)
         if pack_doc is None or pack_filename is None:
             log.error(f"Fail installing pack {pack_info['name']} - {pack_info['version']}")
-            return False
+            return
 
         retcode, stdout, stderr = utils.install_pack(pack_doc, pack_filename)
-        if retcode != 0:
-            log.error(f"Fail installing pack {pack_info['name']}: {stdout} - {stderr}")
-            return False
-
-        manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
-        if not os.path.isfile(manifest_filename):
-            create_edge_manifest(app_token)
-        else:
-            update_edge_manifest(pack_doc)
     except:
-        return False
+        pass
+
+    if retcode != 0:
+        log.error(f"Fail installing pack {pack_info['name']}")
+        sys.exit(1)
+
+    manifest_filename = os.path.join(CONFIG["file-service"]["data_folder"], "edge_manifest.json")
+    if not os.path.isfile(manifest_filename):
+        create_edge_manifest(app_token)
+    else:
+        update_edge_manifest(pack_doc)
 
     return True
 #----------------------------------------------------------------------------------------------------------------------------------
