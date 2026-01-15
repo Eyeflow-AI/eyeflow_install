@@ -39,7 +39,7 @@ fi
 if ! python3 -c "import eyeflow_sdk" &> /dev/null;
 then
   python3 -m pip install Cython
-  python3 -m pip install nvidia-pyindex
+  python3 -m pip config set global.extra-index-url https://pypi.ngc.nvidia.com
   CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH CUDA_INC_DIR=/usr/local/cuda/include
   python3 -m pip install pycuda
   python3 -m pip install \
