@@ -52,7 +52,7 @@ fi
 if ! python3 -c "import eyeflow_sdk" &> /dev/null;
 then
   python3 -m pip install -U eyeflow_sdk
-  python3 -m pip install nvidia-pyindex
+  python3 -m pip config set global.extra-index-url https://pypi.ngc.nvidia.com
   python3 -m pip install \
     onnx_graphsurgeon \
     onnx \
