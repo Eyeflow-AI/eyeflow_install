@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import argparse
 
 from azure.storage.blob import BlobServiceClient
@@ -43,25 +44,29 @@ def main(args=None):
     with open(args.local_file_path, 'rb') as file:
         data = file.read()
 
-    blob_client = BlobServiceClient(
-        account_url=CONFIG["storage_credentials"]["account_url"],
-        credential=CONFIG["storage_credentials"]["account_key"],
-        proxies=proxies
-    )
-
-    blob_name = os.path.basename(args.local_file_path)
-    upload_blob = blob_client.get_blob_client(container='misc', blob=blob_name)
-    upload_blob.upload_blob(data=bytes(data))
-
-    log.info(f"File {args.local_file_path} uploaded successfully.")
-#----------------------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
     try:
-        main()
+        blob_client = BlobServiceClient(
+            account_url=CONFIG["storage_credentials"]["account_url"],
+            credential=CONFIG["storage_credentials"]["account_key"],
+            proxies=proxies
+        )
+
+        blob_name = f"{edge_name}/{os.path.basename(args.local_file_path)}"
+        upload_blob = blob_client.get_blob_client(container='edge-upload', blob=blob_name)
+        upload_blob.upload_blob(data=bytes(data))
     except ResourceExistsError as e:
         log.error(f"Resource already exists: {e}")
     except ResourceNotFoundError as e:
         log.error(f"Resource not found: {e}")
     except Exception as e:
         log.error(f"An error occurred: {e}")
+
+    log.info(f"File {blob_name} uploaded successfully.")
+#----------------------------------------------------------------------------------------------------------------------------------
+
+with open('/opt/eyeflow/data/edge_data.json', 'r') as f:
+    edge_data = json.load(f)
+edge_name = edge_data["edge_data"]["name"]
+
+if __name__ == "__main__":
+    main()

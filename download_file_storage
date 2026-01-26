@@ -40,29 +40,29 @@ def main(args=None):
         log.error("Storage credentials not found in the configuration.")
         return
 
-    blob_client = BlobServiceClient(
-        account_url=CONFIG["storage_credentials"]["account_url"],
-        credential=CONFIG["storage_credentials"]["account_key"],
-        proxies=proxies
-    )
-
-    blob_name = os.path.basename(args.storage_filename)
-    blob_client = blob_client.get_blob_client(container='misc', blob=blob_name)
-    download_stream = blob_client.download_blob()
-    data = download_stream.readall()
-
-    with open(args.local_file, 'wb') as file:
-        file.write(data)
-
-    log.info(f"File {args.storage_filename} downloaded successfully.")
-#----------------------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
     try:
-        main()
+        blob_client = BlobServiceClient(
+            account_url=CONFIG["storage_credentials"]["account_url"],
+            credential=CONFIG["storage_credentials"]["account_key"],
+            proxies=proxies
+        )
+
+        blob_name = os.path.basename(args.storage_filename)
+        blob_client = blob_client.get_blob_client(container='edge-upload', blob=blob_name)
+        download_stream = blob_client.download_blob()
+        data = download_stream.readall()
+
+        with open(args.local_file, 'wb') as file:
+            file.write(data)
     except ResourceExistsError as e:
         log.error(f"Resource already exists: {e}")
     except ResourceNotFoundError as e:
         log.error(f"Resource not found: {e}")
     except Exception as e:
         log.error(f"An error occurred: {e}")
+
+    log.info(f"File {args.storage_filename} downloaded successfully.")
+#----------------------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
