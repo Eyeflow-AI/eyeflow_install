@@ -4,9 +4,8 @@ import sys
 import json
 import argparse
 import tarfile
-
-from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import jwt
+import requests
 
 from eyeflow_sdk.log_obj import log, CONFIG
 
@@ -22,7 +21,7 @@ if "storage_credentials" not in CONFIG:
     exit(1)
 # ---------------------------------------------------------------------------------------------------------------------
 
-def upload_files_part(folder, date, part):
+def upload_files_part(app_token, app_info, folder, date, part):
     try:
         base_folder = "/opt/eyeflow/data/"
         src_folder = os.path.join(base_folder, folder, date)
@@ -39,27 +38,24 @@ def upload_files_part(folder, date, part):
 
             os.chdir(wd)
 
-        with open(tar_filename, 'rb') as file:
-            data = file.read()
+        endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
+        msg_headers = {'Authorization' : f'Bearer {app_token}'}
+        url = f"{endpoint}/file/{app_info['edge_id']}/upload"
 
-        blob_client = BlobServiceClient(
-            account_url=CONFIG["storage_credentials"]["account_url"],
-            credential=CONFIG["storage_credentials"]["account_key"],
-            proxies=proxies
-        )
+        files = {'extract': open(tar_filename, 'rb')}
+        values = {
+            'filename': os.path.basename(tar_filename)
+        }
 
-        blob_name = f"{edge_name}/{os.path.basename(tar_filename)}"
-        upload_blob = blob_client.get_blob_client(container='edge-upload', blob=blob_name)
-        upload_blob.upload_blob(data=bytes(data))
+        response = requests.post(url, files=files, data=values, headers=msg_headers, proxies=proxies)
 
-        log.info(f"File {blob_name} uploaded successfully.")
+        if response.status_code != 201:
+            raise Exception(f"Failing upload extract files: {response.json()['error']['message']}")
 
-    except ResourceExistsError as e:
-        log.error(f"Resource already exists: {e}")
-    except ResourceNotFoundError as e:
-        log.error(f"Resource not found: {e}")
-    except Exception as e:
-        log.error(f"An error occurred: {e}")
+        log.info(f"File {tar_filename} uploaded successfully.")
+
+    except Exception as excp:
+        log.error(f"An error occurred: {excp}")
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -67,12 +63,9 @@ parser = argparse.ArgumentParser(description='Copy parts files')
 parser.add_argument('date', help='A data', type=str)
 parser.add_argument('parts_list', help='A lista de ids separada por virgula', type=str)
 
-with open('/opt/eyeflow/data/edge_data.json', 'r') as f:
-    edge_data = json.load(f)
-
-edge_name = edge_data["edge_data"]["name"]
+app_info, app_token = utils.get_license()
 
 args = parser.parse_args(sys.argv[1:])
 part_list = args.parts_list.split(',')
 for part in part_list:
-    upload_files_part("video", args.date, part)
+    upload_files_part(app_token, app_info, "video", args.date, part)

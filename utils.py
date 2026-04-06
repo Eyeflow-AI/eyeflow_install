@@ -278,7 +278,7 @@ def update_models(app_token, flow_data):
 #----------------------------------------------------------------------------------------------------------------------------------
 
 
-def upload_flow_extracts(app_token, flow_data, max_examples=400):
+def upload_flow_extracts(app_token, flow_data, max_examples=100):
     """
     Upload extracts to datasets after processing video
     """
@@ -436,14 +436,6 @@ def get_os_version():
 
 def check_license(license_info):
     device_info = get_device_info()
-    # if license_info.get("hostname"):
-    #     if device_info["hostname"] != license_info["hostname"]:
-    #         raise Exception("Invalid license for device")
-
-    # if license_info.get("ip"):
-    #     if device_info["ip"] != license_info["ip"]:
-    #         raise Exception("Invalid license for device")
-
     # if license_info.get("device_architecture"):
     #     if device_info["device_architecture"] != license_info["device_architecture"]:
     #         raise Exception("Invalid license for device")
@@ -454,11 +446,6 @@ def check_license(license_info):
                 log.warning("Must run as root")
             else:
                 raise Exception("Invalid license for device")
-
-    # if license_info.get("node_id"):
-    #     if device_info["node_id"] != license_info["node_id"]:
-    #         log.warning("Invalid node_id")
-            # raise Exception("Invalid license for device")
 #----------------------------------------------------------------------------------------------------------------------------------
 
 

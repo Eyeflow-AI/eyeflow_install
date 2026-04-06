@@ -2,8 +2,8 @@
 Description=Automatic sync edge with cloud
 [Timer]
 Unit=cloud_sync.service
-OnBootSec=15
-OnUnitActiveSec=60
-AccuracySec=500msec
+OnCalendar=*-*-* 05:00:00
+# Ensures it runs if the system was down at 5am
+Persistent=true
 [Install]
 WantedBy=timers.target

@@ -4,7 +4,7 @@ Eyeflow Scripts para instalação e setup
 ## Runtime
 Primeiramente, instale o NVIDIA driver
 On Ubuntu 22.04, you can install the NVIDIA driver with the following command:
- - ```sudo apt install -y nvidia-driver-550```
+ - ```sudo apt install -y nvidia-driver-560```
 
 Na Azure VM, o NVIDIA driver é instalado com o comando:
  - ```sudo apt install -y ubuntu-drivers-common && sudo ubuntu-drivers autoinstall```
@@ -43,5 +43,3 @@ Ex: opções para acessar câmeras FLIR
 --env FLIR_GENTL64_CTI=/opt/spinnaker/lib/flir-gentl/FLIR_GenTL.cti \
 --device=/dev/bus/usb/002/002 \
 ```
-
-Após a instalação deve-se ajustar os scripts ```/opt/eyeflow/install/start_edge``` e ```/opt/eyeflow/install/stop_edge``` para a configuração específica da máquina.

@@ -3,16 +3,81 @@
 import os
 import sys
 import argparse
-
-from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import jwt
+import requests
+from pathlib import Path
 
 from eyeflow_sdk.log_obj import log, CONFIG
+import utils
 
 proxies = {}
 if "proxies" in CONFIG:
     proxies = CONFIG["proxies"]
 # ---------------------------------------------------------------------------------------------------------------------
+
+
+def list_files_storage(app_token, app_info):
+    try:
+        endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
+        url = f"{endpoint}/file/{app_info['edge_id']}/list"
+        msg_headers = {'Authorization' : f'Bearer {app_token}'}
+        response = requests.get(url, headers=msg_headers, proxies=proxies)
+
+        if response.status_code != 200:
+            log.error(f'Failing listing files: {response.json()}')
+            return None
+
+        if "files" not in response.json():
+            log.error(f'Failing listing files: "files" field is missing in the response')
+            return None
+
+        return response.json()["files"]
+
+    except requests.ConnectionError as error:
+        log.error(f'Failing listing files: Connection error: {error}')
+        return None
+    except requests.Timeout as error:
+        log.error(f'Failing listing files: Timeout: {error}')
+        return None
+    except Exception as excp:
+        log.error(f'Failing listing files: {excp}')
+        return None
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+
+def download_file_storage(app_token, app_info, filename, local_filename):
+    try:
+        log.info(f'Download file {filename}')
+
+        dest_path = Path(os.path.dirname(local_filename))
+        if not dest_path.is_dir():
+            dest_path.mkdir(parents=True, exist_ok=True)
+
+        endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
+        url = f"{endpoint}/file/{app_info['edge_id']}/download"
+        msg_headers = {'Authorization' : f'Bearer {app_token}'}
+        payload = {"file_name": filename}
+        response = requests.get(url, headers=msg_headers, params=payload, proxies=proxies)
+
+        if response.status_code != 200:
+            log.error(f'Failing downloading file {filename}: {response.json()}')
+            return None
+
+        file_doc = response.json()
+        utils.download_file(file_doc["download_url"], local_filename)
+        return file_doc
+
+    except requests.ConnectionError as error:
+        log.error(f'Failing downloading file: {filename}. Connection error: {error}')
+        return None
+    except requests.Timeout as error:
+        log.error(f'Failing downloading file: {filename}. Timeout: {error}')
+        return None
+    except Exception as excp:
+        log.error(f'Failing downloading file: {filename} - {excp}')
+        return None
+# ---------------------------------------------------------------------------------------------------------------------------------
+
 
 def parse_args(args):
     """ Parse the arguments.
@@ -36,33 +101,27 @@ def main(args=None):
         log.error(f"File {args.local_file} already exist.")
         return
 
-    if "storage_credentials" not in CONFIG:
-        log.error("Storage credentials not found in the configuration.")
-        return
-
+    app_info, app_token = utils.get_license()
     try:
-        blob_client = BlobServiceClient(
-            account_url=CONFIG["storage_credentials"]["account_url"],
-            credential=CONFIG["storage_credentials"]["account_key"],
-            proxies=proxies
-        )
+        # files_list = list_files_storage(app_token=app_token, app_info=app_info)
+        # if files_list is None:
+        #     log.error("Failed to retrieve files list from storage.")
+        #     return
 
-        blob_name = os.path.basename(args.storage_filename)
-        blob_client = blob_client.get_blob_client(container='edge-upload', blob=blob_name)
-        download_stream = blob_client.download_blob()
-        data = download_stream.readall()
+        # for file in files_list:
+        #     # log.info(f"File in storage: {file}")
+        #     if file["file_name"] == args.storage_filename:
+        #         break
+        # else:
+        #     log.error(f"File {args.storage_filename} not found in storage.")
+        #     return
 
-        with open(args.local_file, 'wb') as file:
-            file.write(data)
-    except ResourceExistsError as e:
-        log.error(f"Resource already exists: {e}")
-    except ResourceNotFoundError as e:
-        log.error(f"Resource not found: {e}")
-    except Exception as e:
-        log.error(f"An error occurred: {e}")
+        download_file_storage(app_token=app_token, app_info=app_info, filename=args.storage_filename, local_filename=args.local_file)
+    except Exception as excp:
+        log.error(f"An error occurred: {excp}")
+        return
 
     log.info(f"File {args.storage_filename} downloaded successfully.")
 #----------------------------------------------------------------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    main()
+main()

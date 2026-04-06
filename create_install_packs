@@ -18,19 +18,23 @@ files_list = [
     "cloud_sync.service",
     "cloud_sync.timer",
     "install_cloud_sync_service.sh",
+    "purge_old_files.sh",
+    "purge_old_files.service",
+    "purge_old_files.timer",
+    "install_purge_old_files_service.sh",
     "request_license.py",
     "run_endpoint.sh",
     "start_service",
     "stop_service",
     "start_container",
     "stop_container",
-    "restart_edge",
+    "restart_service",
     "upgrade_edge",
     "upload_extracts.py",
     "utils.py",
     "download_file_storage",
     "upload_file_storage",
-    "delete_file_storage"
+    "upload_part_files"
 ]
 
 if not os.path.exists("./tmp"):

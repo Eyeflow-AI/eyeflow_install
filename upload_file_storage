@@ -2,18 +2,38 @@
 
 import os
 import sys
-import json
 import argparse
-
-from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import jwt
+import requests
 
 from eyeflow_sdk.log_obj import log, CONFIG
+import utils
 
 proxies = {}
 if "proxies" in CONFIG:
     proxies = CONFIG["proxies"]
 # ---------------------------------------------------------------------------------------------------------------------
+
+
+def upload_file(app_token, app_info, local_filename):
+    try:
+        endpoint = jwt.decode(app_token, options={"verify_signature": False})['endpoint']
+        msg_headers = {'Authorization' : f'Bearer {app_token}'}
+        url = f"{endpoint}/file/{app_info['edge_id']}/upload"
+
+        files = {'extract': open(local_filename, 'rb')}
+        values = {
+            'filename': os.path.basename(local_filename)
+        }
+
+        response = requests.post(url, files=files, data=values, headers=msg_headers, proxies=proxies)
+
+        if response.status_code != 201:
+            raise Exception(f"Failing upload extract files: {response.json()['error']['message']}")
+    except Exception as excp:
+        raise Exception(f"An error occurred: {excp}")
+#----------------------------------------------------------------------------------------------------------------------------------
+
 
 def parse_args(args):
     """ Parse the arguments.
@@ -23,6 +43,7 @@ def parse_args(args):
 
     return parser.parse_args(args)
 #----------------------------------------------------------------------------------------------------------------------------------
+
 
 def main(args=None):
     if args is None:
@@ -37,36 +58,15 @@ def main(args=None):
         log.error(f"Path {args.local_file_path} is not a file.")
         return
 
-    if "storage_credentials" not in CONFIG:
-        log.error("Storage credentials not found in the configuration.")
-        return
-
-    with open(args.local_file_path, 'rb') as file:
-        data = file.read()
+    app_info, app_token = utils.get_license()
 
     try:
-        blob_client = BlobServiceClient(
-            account_url=CONFIG["storage_credentials"]["account_url"],
-            credential=CONFIG["storage_credentials"]["account_key"],
-            proxies=proxies
-        )
-
-        blob_name = f"{edge_name}/{os.path.basename(args.local_file_path)}"
-        upload_blob = blob_client.get_blob_client(container='edge-upload', blob=blob_name)
-        upload_blob.upload_blob(data=bytes(data))
-    except ResourceExistsError as e:
-        log.error(f"Resource already exists: {e}")
-    except ResourceNotFoundError as e:
-        log.error(f"Resource not found: {e}")
+        upload_file(app_token=app_token, app_info=app_info, local_filename=args.local_file_path)
     except Exception as e:
         log.error(f"An error occurred: {e}")
+        return
 
-    log.info(f"File {blob_name} uploaded successfully.")
+    log.info(f"File {args.local_file_path} uploaded successfully.")
 #----------------------------------------------------------------------------------------------------------------------------------
 
-with open('/opt/eyeflow/data/edge_data.json', 'r') as f:
-    edge_data = json.load(f)
-edge_name = edge_data["edge_data"]["name"]
-
-if __name__ == "__main__":
-    main()
+main()
