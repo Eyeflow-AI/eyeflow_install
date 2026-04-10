@@ -15,10 +15,6 @@ import utils
 proxies = {}
 if "proxies" in CONFIG:
     proxies = CONFIG["proxies"]
-
-if "storage_credentials" not in CONFIG:
-    log.error("Storage credentials not found in the configuration.")
-    exit(1)
 # ---------------------------------------------------------------------------------------------------------------------
 
 def upload_files_part(app_token, app_info, folder, date, part):
