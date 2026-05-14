@@ -15,6 +15,8 @@ import json
 from eyeflow_sdk import edge_client
 from eyeflow_sdk.log_obj import CONFIG, log
 
+from eyeflow_sdk.dataset_utils import Dataset
+
 proxies = {}
 if "proxies" in CONFIG:
     proxies = CONFIG["proxies"]
@@ -46,9 +48,73 @@ def parse_args(args):
     """
     parser = argparse.ArgumentParser(description='Upload flow extracts.')
     parser.add_argument('-d', '--dataset', help='The ID/Name of dataset to upload', type=str)
+    parser.add_argument('-dd', '--ddataset', help='The ID/Name of dataset destination to upload from source dataset', type=str)
 
     return parser.parse_args(args)
 #----------------------------------------------------------------------------------------------------------------------------------
+
+
+def map_and_update_extract_classes(args, app_token):
+    """
+    Copy all extracts from source dataset to destination dataset,
+    modifying class labels in _data.json files to match destination dataset.
+    """
+    source_dataset = Dataset(args.dataset, app_token)
+    source_dataset.load_data()
+
+    destination_dataset = Dataset(args.ddataset, app_token)
+    destination_dataset.load_data()
+
+    extract_path, dataset_id = get_dataset_folder(args.dataset)
+    os.makedirs(os.path.join(CONFIG["file-service"]["extract"], args.ddataset), exist_ok=True)
+    destination_extract_path = os.path.join(CONFIG["file-service"]["extract"], args.ddataset)
+    
+    log.info(f"Copying extracts from {extract_path} to {destination_extract_path}")
+
+    destination_parms = destination_dataset.parms.get("classes", [])
+    extracts = os.listdir(extract_path)
+    
+    files_processed = 0
+    files_modified = 0
+
+    for extract in extracts:
+        source_file_path = os.path.join(extract_path, extract)
+        destination_file_path = os.path.join(destination_extract_path, extract)
+
+        try:
+            if extract.endswith("_data.json"):
+                # Process and modify _data.json files
+                with open(source_file_path, 'r') as f:
+                    extract_data = json.load(f)
+                
+                if "annotations" in extract_data and "instances" in extract_data["annotations"]:
+                    for instance in extract_data["annotations"]["instances"]:
+                        for parms in destination_parms:
+                            if instance.get("label") == parms.get("label"):
+                                instance["class"] = parms["name"]
+                
+                with open(destination_file_path, 'w') as f:
+                    json.dump(extract_data, f, indent=4)
+                
+                files_modified += 1
+                log.info(f"Modified and saved: {extract}")
+                
+            else:
+                # Copy other files as-is (images, thumbnails, etc.)
+                if os.path.isfile(source_file_path):
+                    import shutil
+                    shutil.copy2(source_file_path, destination_file_path)
+                    log.debug(f"Copied: {extract}")
+            
+            files_processed += 1
+
+        except Exception as e:
+            log.error(f"Error processing {extract}: {e}")
+
+    log.info(f"Completed: {files_processed} files processed, {files_modified} JSON files modified")
+    log.info(f"Source classes: {source_dataset.parms.get('classes', [])}")
+    log.info(f"Destination classes: {destination_dataset.parms.get('classes', [])}")
+
 
 def main(args=None):
     # parse arguments
@@ -73,23 +139,34 @@ def main(args=None):
     utils.check_license(app_info)
 
     if args.dataset:
-        extract_path, dataset_id = get_dataset_folder(args.dataset)
-        files_uploaded = os.listdir(extract_path)
+        source_extract_path, source_dataset_id = get_dataset_folder(args.dataset)
+        target_dataset_id = source_dataset_id
+        target_extract_path = source_extract_path
+
+        if args.ddataset:
+            log.info("Mapping and updating extracts for destination dataset.")
+            map_and_update_extract_classes(args, app_token)
+            target_dataset_id = args.ddataset
+            target_extract_path = os.path.join(CONFIG["file-service"]["extract"], args.ddataset)
+        else:
+            log.info("Source and destination datasets are the same.")
+
+        files_to_upload_and_delete = os.listdir(target_extract_path)
         if not edge_client.upload_extract(
             app_token,
-            dataset_id,
+            target_dataset_id,
             extract_folder=CONFIG["file-service"]["extract"],
             max_files=800,
             thumb_size=128
         ):
-            log.error(f'Fail uploading extract {args.dataset}')
+            log.error(f'Fail uploading extract {target_dataset_id}')
         else:
-            log.info("Deleting files from: " + extract_path)
-            for filename in files_uploaded:
+            log.info("Deleting files from: " + target_extract_path)
+            for filename in files_to_upload_and_delete:
                 try:
-                    os.remove(os.path.join(extract_path, filename))
-                except:
-                    pass
+                    os.remove(os.path.join(target_extract_path, filename))
+                except Exception as e:
+                    log.error(f"Error deleting file {filename}: {e}")
     else:
         try:
             if host_type == "endpoint":
