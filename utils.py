@@ -260,8 +260,8 @@ def update_models(app_token, flow_data):
             log.warning(f"Empty model for dataset {dataset_id}")
             return
 
-        if not os.path.isfile(model_file):
-            raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
+        # if not os.path.isfile(model_file):
+        #     raise Exception(f'Model for dataset {dataset_id} not found at: {model_file}')
 
 
     model_folder = CONFIG["file-service"]["model"]
