@@ -1,0 +1,10 @@
+[Unit]
+Description=Move FeedBack Parts image and video files
+
+[Service]
+Type=simple
+Environment="DB_URL=mongodb://eyeflow:eyeflow@127.0.0.1:27017/?authSource=admin&readPreference=primary&ssl=false&directConnection=true"
+ExecStart=python3 /opt/eyeflow/install/move_parts_files.py
+
+[Install]
+WantedBy=multi-user.target

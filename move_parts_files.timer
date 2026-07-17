@@ -1,0 +1,11 @@
+[Unit]
+Description=Move FeedBack Parts image and video files
+
+[Timer]
+# OnCalendar=*-*-* 1:00:00
+OnCalendar=*:0/5
+Persistent=true
+Unit=move_parts_files.service
+
+[Install]
+WantedBy=timers.target
