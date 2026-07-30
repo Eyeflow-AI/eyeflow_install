@@ -6,7 +6,6 @@ then
   apt purge -y thunderbird* libreoffice* remmina* rhythmbox* aisleriot* gnome-mahjongg* gnome-mines* gnome-sudoku* gnome-todo* gnome-calendar* gnome-contacts* gnome-weather* gnome-maps* gnome-documents* gnome-photos* gnome-music*
 fi
 
-apt autoremove -y
 apt upgrade -y
 
 if [ $(dpkg-query -W -f='${Status}' nvidia-jetpack 2>/dev/null | grep -c "ok installed") -eq 0 ];
@@ -16,7 +15,7 @@ fi
 
 if [ $(dpkg-query -W -f='${Status}' nano 2>/dev/null | grep -c "ok installed") -eq 0 ];
 then
-  apt install -y curl wget nano
+  apt install -y curl wget nano gpiod
 fi
 
 no | /usr/sbin/nvpmodel -m 0 2>/dev/null
@@ -48,6 +47,8 @@ then
       eyeflow_sdk
 fi
 
+apt autoremove -y
+
 # Eyeflow folder & user
 if ! id -u "eyeflow" >/dev/null 2>&1;
 then
@@ -65,15 +66,15 @@ then
   echo "Creating Eyeflow folders"
 
   mkdir -p /opt/eyeflow
-  chown -R eyeflow:users /opt/eyeflow
-  chmod 775 /opt/eyeflow
-  chmod g+rwxs /opt/eyeflow
-
   mkdir -p /opt/eyeflow/data
   mkdir -p /opt/eyeflow/log
   mkdir -p /opt/eyeflow/run
   mkdir -p /opt/eyeflow/components
   mkdir -p /opt/eyeflow/install
+
+  chown -R eyeflow:users /opt/eyeflow
+  chmod 775 /opt/eyeflow
+  chmod g+rwxs /opt/eyeflow
 fi
 
 if [ ! -f /opt/eyeflow/install/cloud_sync.py ];
