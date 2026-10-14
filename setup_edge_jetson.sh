@@ -38,7 +38,6 @@ fi
 if ! python3 -c "import eyeflow_sdk" &> /dev/null;
 then
   python3 -m pip install Cython
-  python3 -m pip config set global.extra-index-url https://pypi.ngc.nvidia.com
   CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH CUDA_INC_DIR=/usr/local/cuda/include
   python3 -m pip install pycuda
   python3 -m pip install \
@@ -93,6 +92,22 @@ then
   chmod +x /opt/eyeflow/run/run_flow.sh
 
   gsettings set org.gnome.desktop.background picture-uri file:///opt/eyeflow/install/eyeflow-background.jpg
+fi
+
+if [ ! -f /opt/eyeflow/run/edge.license ];
+then
+  echo "Edge license not found. Requesting license"
+  read -p 'Environment name: ' EDGE_ENV_NAME
+  read -p 'Edge Device name: ' EDGE_DEVICE_NAME
+  python3 /opt/eyeflow/install/request_license.py "$EDGE_DEVICE_NAME" "$EDGE_ENV_NAME"
+fi
+
+if [ -f /opt/eyeflow/run/edge.license ];
+then
+  /opt/eyeflow/install/install_pack edge_scripts
+  /opt/eyeflow/install/install_pack noc_client
+  /opt/eyeflow/install/install_pack edge_files_server
+  /opt/eyeflow/install/install_pack agent_monitor
 fi
 
 echo "Edge installation finished"

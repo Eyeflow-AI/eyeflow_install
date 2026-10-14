@@ -56,10 +56,12 @@ then
   python3 -m pip install \
     onnx_graphsurgeon \
     onnx \
-    tensorrt==10.0.1 \
-    tensorrt-cu12==10.0.1 \
+    tensorrt==10.3.0 \
+    tensorrt-cu12==10.3.0 \
     opencv_python
 fi
+
+apt autoremove -y
 
 # Eyeflow folder & user
 if ! id -u "eyeflow" >/dev/null 2>&1;
@@ -105,6 +107,22 @@ then
   chmod +x /opt/eyeflow/run/run_flow.sh
 
   gsettings set org.gnome.desktop.background picture-uri file:///opt/eyeflow/install/eyeflow-background.jpg
+fi
+
+if [ ! -f /opt/eyeflow/run/edge.license ];
+then
+  echo "Edge license not found. Requesting license"
+  read -p 'Environment name: ' EDGE_ENV_NAME
+  read -p 'Edge Device name: ' EDGE_DEVICE_NAME
+  python3 /opt/eyeflow/install/request_license.py "$EDGE_DEVICE_NAME" "$EDGE_ENV_NAME"
+fi
+
+if [ -f /opt/eyeflow/run/edge.license ];
+then
+  /opt/eyeflow/install/install_pack edge_scripts
+  /opt/eyeflow/install/install_pack noc_client
+  /opt/eyeflow/install/install_pack edge_files_server
+  /opt/eyeflow/install/install_pack agent_monitor
 fi
 
 echo "Edge installation finished"
