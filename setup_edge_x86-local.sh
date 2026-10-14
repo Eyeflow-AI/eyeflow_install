@@ -119,6 +119,9 @@ fi
 
 if [ -f /opt/eyeflow/run/edge.license ];
 then
+  /opt/eyeflow/install/install_pack edge_sdk_libs
+  /opt/eyeflow/install/install_pack libedge_sdk
+  /opt/eyeflow/install/install_pack eyeflow_edge
   /opt/eyeflow/install/install_pack edge_scripts
   /opt/eyeflow/install/install_pack noc_client
   /opt/eyeflow/install/install_pack edge_files_server
